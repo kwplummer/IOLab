@@ -1,5 +1,5 @@
 CXX=g++
-CFLAGS=-std=c++11 -O2 -Wall
+CFLAGS=-O2 -Wall
 GTEST_FLAGS=/usr/lib/libgtest.a /usr/lib/libgtest_main.a -lpthread
 
 ALL: program tests
