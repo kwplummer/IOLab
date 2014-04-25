@@ -297,10 +297,10 @@ public:
     ------------------------------------------------------------------
    Restores the saved disk image in a file to the array.
    */
-  void restore();
+  void restore(const std::string &name);
 
   // Saves the array to a file as a disk image.
-  void save();
+  void save(const std::string &name);
 
   // Disk dump, from block 'start' to 'start+size-1'.
   void diskDump(int start, int size);
