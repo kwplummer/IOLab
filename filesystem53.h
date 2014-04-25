@@ -36,6 +36,17 @@ class FileSystem53
   static const int FILEIO_BUFFER_SIZE = 64; // Size of file io bufer
   static const int _EOF = -1;               // End-of-File
 
+  struct OFT
+  {
+    struct OF
+    {
+      char buf[B];
+      char pos;
+      char index;
+    };
+    OF table[3];
+  };
+
 public:
   /* Constructor of this File system.
      *   1. Initialize IO system.
