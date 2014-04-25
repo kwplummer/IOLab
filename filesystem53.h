@@ -2,18 +2,20 @@
 #include "iomanager.h"
 class FileSystem53
 {
+  //One File Descriptor (DELETE THIS)
+  char name[MAX_FILE_NAME_LEN];
+  char index;
 
   static const int B = 64; // Block length
   static const int K = 7; // Number of blocks for descriptor table
   IOManager io;
-  char **desc_table; // Descriptor Table (in memory).
-                     // This is aka cache. It's contents should be
-                     // maintained to be same as first K blocks in disk.
+  char desc_table[K][B];
+
   // Descriptor table format:
   // +-------------------------------------+
-  // | bitmap | dsc_0 | dsc_1 | .. | dsc_N |
+  // | bytemap | dsc_0 | dsc_1 | .. | dsc_N |
   // +-------------------------------------+
-  //   bitmap: Each bit represent a block in a disk. MAX_BLOCK_NO/8 bytes
+  //   bytemap: Each bit represent a block in a disk. MAX_BLOCK_NO/8 bytes
   //   dsc_0 : Root directory descriptor
   //   dsc_i : i'th descriptor. Each descriptor is FILE_SIZE_FIELD+ARRAY_SIZE
   //   bytes long.
@@ -70,7 +72,7 @@ public:
 
   /* Clear descriptor
    *   1. Clear descriptor entry
-   *   2. Clear bitmap
+   *   2. Clear bytemap
    *   3. Write back to disk
    * Parameter(s):
    *    no: Descriptor number to clear
@@ -81,7 +83,7 @@ public:
 
   /* Write descriptor
    *   1. Update descriptor entry
-   *   2. Mark bitmap
+   *   2. Mark bytemap
    *   3. Write back to disk
    * Parameter(s):
    *    no: Descriptor number to write
@@ -98,7 +100,7 @@ public:
   int findEmptyDescriptor();
 
   /* Search for an unoccupied block.
-   *   This returns the first unoccupied block in bitmap field.
+   *   This returns the first unoccupied block in bytemap field.
    *   Return value -1 means all blocks are occupied.
    * Parameter(s):
    *    none

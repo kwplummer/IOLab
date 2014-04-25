@@ -1,5 +1,5 @@
 #include "filesystem53.h"
-
+#include <string.h>
 FileSystem53::FileSystem53(int l, int b, const std::string &storage)
 {
   format();
@@ -11,7 +11,16 @@ int FileSystem53::findOft() {}
 
 void FileSystem53::deallocateOft(int index) {}
 
-void FileSystem53::format() {}
+void FileSystem53::format()
+{
+  for(int i=0;i<K;++i)
+  {
+    for(int j=0;j<B;++j)
+    {
+      desc_table[i][j] = '\0';
+    }
+  }
+}
 
 char *FileSystem53::readDescriptor(int no) {}
 
@@ -51,8 +60,14 @@ int FileSystem53::deleteFile(const std::string &fileName) {}
 
 void FileSystem53::directory() {}
 
-void FileSystem53::restore(const std::string &name) {io.load(name);}
+void FileSystem53::restore(const std::string &name)
+{
+  io.load(name);
+}
 
-void FileSystem53::save(const std::string &name) {io.save(name);}
+void FileSystem53::save(const std::string &name)
+{
+  io.save(name);
+}
 
 void FileSystem53::diskDump(int start, int size) {}
