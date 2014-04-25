@@ -51,8 +51,8 @@ int FileSystem53::deleteFile(const std::string &fileName) {}
 
 void FileSystem53::directory() {}
 
-void FileSystem53::restore(const std::string &name) {}
+void FileSystem53::restore(const std::string &name) {io.load(name);}
 
-void FileSystem53::save(const std::string &name) {}
+void FileSystem53::save(const std::string &name) {io.save(name);}
 
 void FileSystem53::diskDump(int start, int size) {}

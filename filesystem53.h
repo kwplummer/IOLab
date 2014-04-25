@@ -1,10 +1,11 @@
 #include <string>
-
+#include "iomanager.h"
 class FileSystem53
 {
 
   static const int B = 64; // Block length
   static const int K = 7; // Number of blocks for descriptor table
+  IOManager io;
   char **desc_table; // Descriptor Table (in memory).
                      // This is aka cache. It's contents should be
                      // maintained to be same as first K blocks in disk.
