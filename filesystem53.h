@@ -1,15 +1,39 @@
+/*
+ * ldisk[0][] = bytemap, [1..6][] is descriptors. [7..] Data
+ *
+ * --Directory file--
+ * Empty, as nothing's created.
+ * Bytemap[0..6] is 1.
+ *
+ * --Creating a file named f1.txt--
+ * Empty, title is first content of Directory file.
+ * Find descriptor index (1, right after directory's 0), it's descriptor is this:
+ *
+ * --Descriptor--
+ * 0 (size) -1 -1 -1 (blocks)
+ * We now update directory, as something's created.
+ * Now there's something in directory, it needs a block.
+ * Reserve first data block, block 7. Mark bytemap[7] to true. (1)
+ *
+ * --We write "Hello", char[5] to f1.txt--
+ * We allocate block 8. Mark bytemap[8] to true (1)
+ *
+ * Kyle: Read(), Write()
+ * Sophia: Create() Destroy()
+ * Ben: Seek() Directory()
+ * Holly: Open(), Close()
+ *
+ * Meet at Wednesday 12:30
+*/
+
 #include <string>
 #include "iomanager.h"
 class FileSystem53
 {
-  //One File Descriptor (DELETE THIS)
-  char name[MAX_FILE_NAME_LEN];
-  char index;
-
   static const int B = 64; // Block length
   static const int K = 7; // Number of blocks for descriptor table
   IOManager io;
-  char desc_table[K][B];
+  char descTable[K][B];
 
   // Descriptor table format:
   // +-------------------------------------+
@@ -17,8 +41,7 @@ class FileSystem53
   // +-------------------------------------+
   //   bytemap: Each bit represent a block in a disk. MAX_BLOCK_NO/8 bytes
   //   dsc_0 : Root directory descriptor
-  //   dsc_i : i'th descriptor. Each descriptor is FILE_SIZE_FIELD+ARRAY_SIZE
-  //   bytes long.
+  //   dsc_i : ith descriptor. table[1] is size, [2..4] is blocks of data.
 
   // Filesystem format parameters:
   static const int FILE_SIZE_FIELD = 1; // Size of file size field in bytes. Maximum file
@@ -26,33 +49,35 @@ class FileSystem53
   static const int ARRAY_SIZE = 3; // The length of array of disk block numbers that hold the
                       // file contents.
   static const int DESCR_SIZE = FILE_SIZE_FIELD + ARRAY_SIZE;
-  static const int MAX_FILE_NO =
-      14; // Maximum number of files which can be stored by this file system.
+  static const int MAX_FILE_NO = 14; // Maximum number of files which can be stored by this file system.
   static const int MAX_BLOCK_NO = 64; // Maximum number of blocks which can be supported by
                          // this file system.
   static const int MAX_BLOCK_NO_DIV8 = MAX_BLOCK_NO / 8;
-  static const int MAX_FILE_NAME_LEN = 32; // Maximum size of file name in byte.
+  static const int MAX_FILE_NAME_LEN = 10; // Maximum size of file name in byte.
   static const int MAX_OPEN_FILE = 3; // Maximum number of files to open at the same time.
   static const int FILEIO_BUFFER_SIZE = 64; // Size of file io bufer
   static const int _EOF = -1;               // End-of-File
+  static const int DIRECTORY_INDEX = 0;
 
   struct OFT
   {
-    struct OF
+    struct OpenFile
     {
-      char buf[B];
-      char pos;
-      char index;
+      char buf[B]; //Copy of block we're in
+      char pos; //What to read/write next (0..(B*3)).
+      char index; //Our index in File Descriptor
     };
-    OF table[3];
-  };
+    OpenFile table[3];
+    bool open[3];
+    OFT() : open({false,false,false}) {}
+  } table;
 
 public:
   /* Constructor of this File system.
      *   1. Initialize IO system.
      *   2. Format it if not done.
      */
-  FileSystem53(int l, int b, const std::string &storage);
+  FileSystem53();
 
   // Open File Table(OFT).
   void OpenFileTable();

@@ -1,6 +1,6 @@
 #include "filesystem53.h"
 #include <string.h>
-FileSystem53::FileSystem53(int l, int b, const std::string &storage)
+FileSystem53::FileSystem53()
 {
   format();
 }
@@ -13,12 +13,30 @@ void FileSystem53::deallocateOft(int index) {}
 
 void FileSystem53::format()
 {
-  for(int i=0;i<K;++i)
+  char input[B];
+  for(int i=0;i<7;++i)
   {
-    for(int j=0;j<B;++j)
+    input[i] = 1;
+  }
+  for(int i=7;i<B;++i)
+  {
+    input[i] = 0;
+  }
+  io.write_block(0,input);
+  for(int i=0;i<B;++i)
+  {
+    if(i % 4 == 0)
     {
-      desc_table[i][j] = '\0';
+      input[i] = 0;
     }
+    else
+    {
+      input[i] = -1;
+    }
+  }
+  for(int i=1;i<7;++i)
+  {
+    io.write_block(i,input);
   }
 }
 
@@ -46,7 +64,10 @@ int FileSystem53::create(const std::string &symbolic_file_name) {}
 
 int FileSystem53::openDesc(int desc_no) {}
 
-int FileSystem53::open(const std::string &symbolic_file_name) {}
+int FileSystem53::open(const std::string &symbolic_file_name)
+{
+
+}
 
 int FileSystem53::read(int index, char *mem_area, int count) {}
 
