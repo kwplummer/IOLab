@@ -106,6 +106,7 @@ int FileSystem53::create(const std::string &fileName)
       // Load the newly added directoryBlock, so we can mark it used.
       char directoryBlock[B];
       io.read_block(directoryDescriptor[i], directoryBlock);
+      memset(directoryBlock, 0, B);
 
       // Copy the filename's data to the start of the directory block
       strncpy(directoryBlock, fileName.c_str(), MAX_FILE_NAME_LEN);
@@ -184,8 +185,7 @@ int FileSystem53::open(const std::string &fileName)
           if(!table.open[i])
           {
             found = true;
-            char empty[B] = {0}; // This 0-fills an array.
-            memcpy(table.table[i].buf, empty, B);
+            memset(table.table[i].buf, 0, B);
             table.table[i].pos = 0;
             table.table[i].index = directoryBlock[j + MAX_FILE_NAME_LEN];
             table.open[i] = true;
@@ -201,18 +201,7 @@ int FileSystem53::open(const std::string &fileName)
   }
   return -1;
 }
-
-/* File Read function:
- *    This reads a number of bytes from the the file indicated by index.
- *    Reading should start from the point pointed by current position of the
- file.
- *    Current position should be updated accordingly after read.
- * Parameter(s):
- *    index: File index which indicates the file to be read.
- *    mem_area: buffer to be returned
- *    count: number of byte(s) to read
- * Return:
- *    Actual number of bytes returned in mem_area[].
+/*    Actual number of bytes returned in mem_area[].
  *    -1 value for error case "File hasn't been open"
  *    -2 value for error case "End-of-file"
  TODOs:
@@ -231,7 +220,76 @@ int FileSystem53::open(const std::string &fileName)
         3.6 Update current position so that next read() can be done from the
  first byte haven't-been-read.
   */
-int FileSystem53::read(int index, char *mem_area, int count) {}
+int FileSystem53::read(int index, char *memArea, int count)
+{
+  // If the index is negative, too big, or not open
+  if(index < 0 || index > MAX_OPEN_FILE || !table.open[index])
+  {
+    return -1;
+  }
+  // If we're being asked to write a negative number of items, return 0.
+  if(count < 0)
+  {
+    return 0;
+  }
+  int numberRead = 0;
+  // The index of the file descriptor, not just in this block.
+  const int totalFileIndex = table.table[index].index;
+  // The block which holds the file descriptor
+  const int descriptorIndex = 1 + ((totalFileIndex * 4) / B);
+  char fileDescriptor[B];
+  io.read_block(descriptorIndex, fileDescriptor);
+  // The index of the file descriptor in the loaded block.
+  const int fileIndex = totalFileIndex % (B / 4);
+
+  // The position relative to buf. (180 would be 52 within block 2)
+  int relativePos = table.table[index].pos % B;
+  // Which block we're in (1 to 3)
+  int currentBlock = 1 + (table.table[index].pos / B);
+  int maxRead = (unsigned char)fileDescriptor[(fileIndex * 4)];
+
+  // If we don't have a block, return 0;
+  if(!fileDescriptor[fileIndex * 4])
+  {
+    return 0;
+  }
+
+  for(int i = 0; i < count; ++i, ++relativePos, ++numberRead)
+  {
+    if(numberRead > count || numberRead > maxRead)
+    {
+      --numberRead;
+      break;
+    }
+    // If we're at or past a block boundary, load a new one, or stop.
+    if(relativePos >= B)
+    {
+      // Write what we have to disk. (In the event it was modified. We COULD add
+      // a dirty bit(/byte) to only write if needed.
+      io.write_block(fileDescriptor[(fileIndex * 4) + currentBlock],
+                     table.table[index].buf);
+      ++currentBlock;
+      // If currentBlock is higher than the length of the file, stop.
+      if(currentBlock > (unsigned char)fileDescriptor[fileIndex * 4])
+      {
+        ++table.table[index].pos += numberRead;
+        return numberRead;
+      }
+      else
+      {
+        // Read that block from disk.
+        io.read_block(fileDescriptor[(fileIndex * 4) + currentBlock],
+                      table.table[index].buf);
+      }
+      // Reset relativePos to be B places back.
+      relativePos -= B;
+    }
+    memArea[numberRead] = table.table[index].buf[relativePos];
+  }
+  // Once we're done, set the full position to be count higher.
+  table.table[index].pos += numberRead;
+  return numberRead;
+}
 
 /* File Write function:
  *    This writes 'count' number of 'value'(s) to the file indicated by index.
@@ -258,6 +316,10 @@ int FileSystem53::write(int index, char value, int count)
   if(count < 0)
   {
     return 0;
+  }
+  if(count == 0)
+  {
+    return 1;
   }
   // If we're being asked to write too many items.
   if(count + table.table[index].pos > B * 3)
@@ -295,12 +357,11 @@ int FileSystem53::write(int index, char value, int count)
                      table.table[index].buf);
       ++currentBlock;
       // If currentBlock is higher than the length of the file, create a block.
-      if(currentBlock > fileDescriptor[fileIndex * 4])
+      if(currentBlock * B > (unsigned char)fileDescriptor[fileIndex * 4])
       {
         fileDescriptor[(fileIndex * 4) + currentBlock] = addBlock();
         io.write_block(descriptorIndex, fileDescriptor);
-        char empty[B] = {0}; // This 0-fills an array.
-        memcpy(table.table[index].buf, empty, B);
+        memset(table.table[index].buf, 0, B);
       }
       else
       {
@@ -314,12 +375,35 @@ int FileSystem53::write(int index, char value, int count)
     table.table[index].buf[relativePos] = value;
   }
   // Once we're done, set the full position to be count higher.
-  ++table.table[index].pos += count;
+  table.table[index].pos += count;
+  if(table.table[index].pos > (unsigned char)fileDescriptor[fileIndex * 4])
+  {
+    fileDescriptor[fileIndex * 4] = table.table[index].pos;
+    io.write_block(descriptorIndex, fileDescriptor);
+  }
   return 1;
 }
 
 // HAS NO ERROR CHECKING DO NOT USE IN PRODUCTION!!!!! SEGFAULTS WILL OCCUR!!!!!
-int FileSystem53::lseek(int index, int pos) { table.table[index].pos = pos; }
+int FileSystem53::lseek(int index, int pos)
+{
+  const int oldBlock = 1 + (table.table[index].pos / B);
+  table.table[index].pos = pos;
+  const int currentBlock = 1 + (table.table[index].pos / B);
+  if(oldBlock != currentBlock)
+  {
+    char fileDescriptor[B];
+    const int totalFileIndex = table.table[index].index;
+    const int fileIndex = totalFileIndex % (B / 4);
+    const int descriptorIndex = 1 + ((totalFileIndex * 4) / B);
+    io.read_block(descriptorIndex, fileDescriptor);
+    // Write what we have to disk.
+    io.write_block(fileDescriptor[(fileIndex * 4) + oldBlock],
+                   table.table[index].buf);
+    io.read_block(fileDescriptor[(fileIndex * 4) + currentBlock],
+                  table.table[index].buf);
+  }
+}
 
 void FileSystem53::close(int index) {}
 

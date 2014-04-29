@@ -7,7 +7,7 @@ TEST(IOManager, WriteBlockWorks)
 {
   IOManager io;
   io.write_block(1, "Hey");
-  char p[64];
+  char p[64] = {0};
   io.read_block(1, p);
   ASSERT_STREQ("Hey", p);
 }
@@ -365,17 +365,522 @@ TEST(FileSystem53,
   ASSERT_EQ(1, fs.write(1, 'j', 66));
 }
 
-/*
-        int create(string symbolic_file_name);
-        int open(string symbolic_file_name);
-        int write(int index, char value, int count);
-        int read(int index, char* mem_area, int count);
-        void close(int index);
-        int deleteFile(string fileName);
+// READ joiewgjewoijgoeiwjhoewjgowejgow
 
-        void directory();
-        int lseek(int index, int pos);
-*/
-/*Not implemented tests*/
-TEST(FileSystem53, CanNotCreateTwoFilesWithSameName) { /*TODO*/}
-TEST(FileSystem53, CanNotOpenFileNotCreated) { /*TODO*/}
+TEST(FileSystem53, ReadingFromInvalidFileHasError)
+{
+  FileSystem53 fs;
+  ASSERT_EQ(-1, fs.read(-1, NULL, 8));
+  ASSERT_EQ(-1, fs.read(95, NULL, 8));
+}
+
+TEST(FileSystem53, ReadingFromUnopenedFileHasError)
+{
+  FileSystem53 fs;
+  ASSERT_EQ(-1, fs.read(0, NULL, 8));
+}
+
+TEST(FileSystem53, CanReadOneCharToOpenFile)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  int index = fs.open("Test.txt");
+  ASSERT_EQ(1, fs.write(index, 'f', 1));
+  fs.lseek(0, 0);
+  char buf[64] = {0};
+  ASSERT_EQ(1, fs.read(0, buf, 1));
+  ASSERT_STREQ("f", buf);
+}
+
+TEST(FileSystem53, CanReadOneCharToOpenFileIfAllThreeAreOpen)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  fs.open("Test.txt");
+  fs.create("Test2.txt");
+  fs.open("Test2.txt");
+  fs.create("Test3.txt");
+  fs.open("Test3.txt");
+  ASSERT_EQ(1, fs.write(0, 'f', 1));
+  ASSERT_EQ(1, fs.write(1, 'j', 1));
+  ASSERT_EQ(1, fs.write(2, 'm', 1));
+  char buf[64] = {0};
+  fs.lseek(0, 0);
+  fs.lseek(1, 0);
+  fs.lseek(2, 0);
+  ASSERT_EQ(1, fs.read(0, buf, 1));
+  ASSERT_STREQ("f", buf);
+  ASSERT_EQ(1, fs.read(1, buf, 1));
+  ASSERT_STREQ("j", buf);
+  ASSERT_EQ(1, fs.read(2, buf, 1));
+  ASSERT_STREQ("m", buf);
+}
+
+TEST(FileSystem53, CanReadMoreThanOneBlockOfCharToOpenFile)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  int index = fs.open("Test.txt");
+  ASSERT_EQ(1, fs.write(index, 'f', 66));
+  char checkMe[67];
+  char buf[256];
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'f';
+  }
+  checkMe[66] = '\0';
+  fs.lseek(0, 0);
+  ASSERT_EQ(66, fs.read(index, buf, 66));
+  ASSERT_STREQ(checkMe, buf);
+}
+
+TEST(FileSystem53, CanReadMoreThanOneBlockOfCharToOpenFileIfAllThreeAreOpen)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  fs.open("Test.txt");
+  fs.create("Test2.txt");
+  fs.open("Test2.txt");
+  fs.create("Test3.txt");
+  fs.open("Test3.txt");
+  ASSERT_EQ(1, fs.write(0, 'f', 66));
+  ASSERT_EQ(1, fs.write(1, 'j', 66));
+  ASSERT_EQ(1, fs.write(2, 'm', 66));
+  char checkMe[67] = {'\0'};
+  char buf[256] = {'\0'};
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'f';
+  }
+  fs.lseek(0, 0);
+  ASSERT_EQ(66, fs.read(0, buf, 66));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(1, 0);
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'j';
+  }
+  ASSERT_EQ(66, fs.read(1, buf, 66));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(2, 0);
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'm';
+  }
+  ASSERT_EQ(66, fs.read(2, buf, 66));
+  ASSERT_STREQ(checkMe, buf);
+}
+
+TEST(FileSystem53, CanNotReadEmptyFile)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  fs.open("Test.txt");
+  char checkMe[67];
+  char buf[65] = {'\0'};
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = '\0';
+  }
+  ASSERT_EQ(0, fs.read(0, buf, 10));
+  ASSERT_STREQ(checkMe, buf);
+}
+
+TEST(FileSystem53, ReadingPastEndTruncatesOutput)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  fs.open("Test.txt");
+  char checkMe[67] = {'\0'};
+  char buf[67] = {'\0'};
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'f';
+  }
+  ASSERT_EQ(1, fs.write(0, 'f', 66));
+  fs.lseek(0, 0);
+  ASSERT_EQ(66, fs.read(0, buf, 100));
+  ASSERT_STREQ(checkMe, buf);
+}
+
+TEST(FileSystem53, CanRequestOnlyABitOfTheFile)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  fs.open("Test.txt");
+  char checkMe[67] = {'\0'};
+  char buf[67] = {'\0'};
+  for(int i = 0; i < 20; ++i)
+  {
+    checkMe[i] = 'f';
+  }
+  ASSERT_EQ(1, fs.write(0, 'f', 66));
+  fs.lseek(0, 0);
+  ASSERT_EQ(20, fs.read(0, buf, 20));
+  ASSERT_STREQ(checkMe, buf);
+}
+
+TEST(FileSystem53,
+     CanNotReadMoreThanThreeBlocksOfCharToOpenFileIfAllThreeAreOpen)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  fs.open("Test.txt");
+  fs.create("Test2.txt");
+  fs.open("Test2.txt");
+  fs.create("Test3.txt");
+  fs.open("Test3.txt");
+  char checkMe[67] = {'\0'};
+  char buf[67] = {'\0'};
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'f';
+  }
+  ASSERT_EQ(1, fs.write(0, 'f', 66));
+  fs.lseek(0, 0);
+  ASSERT_EQ(66, fs.read(0, buf, 100));
+  ASSERT_STREQ(checkMe, buf);
+  ASSERT_EQ(1, fs.write(1, 'j', 66));
+  fs.lseek(1, 0);
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'j';
+  }
+  ASSERT_EQ(66, fs.read(1, buf, 100));
+  ASSERT_STREQ(checkMe, buf);
+  ASSERT_EQ(1, fs.write(2, 'm', 66));
+  fs.lseek(2, 0);
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'm';
+  }
+  ASSERT_EQ(66, fs.read(2, buf, 100));
+  ASSERT_STREQ(checkMe, buf);
+}
+
+TEST(FileSystem53, CanResumeReadOneCharToOpenFile)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  int index = fs.open("Test.txt");
+  ASSERT_EQ(1, fs.write(index, 'f', 1));
+  ASSERT_EQ(1, fs.write(index, 'f', 2));
+  fs.lseek(0, 0);
+  char buf[66] = {'\0'};
+  char checkMe[66] = {'\0'};
+  checkMe[0] = 'f';
+  checkMe[1] = 'f';
+  checkMe[2] = 'f';
+  ASSERT_EQ(3, fs.read(index, buf, 10));
+  ASSERT_STREQ(checkMe, buf);
+}
+
+TEST(FileSystem53, CanResumeReadOneCharToOpenFileIfAllThreeAreOpen)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  fs.open("Test.txt");
+  fs.create("Test2.txt");
+  fs.open("Test2.txt");
+  fs.create("Test3.txt");
+  fs.open("Test3.txt");
+  ASSERT_EQ(1, fs.write(0, 'f', 1));
+  ASSERT_EQ(1, fs.write(1, 'j', 1));
+  ASSERT_EQ(1, fs.write(2, 'm', 1));
+  ASSERT_EQ(1, fs.write(1, 'j', 2));
+  ASSERT_EQ(1, fs.write(2, 'm', 2));
+  ASSERT_EQ(1, fs.write(0, 'f', 2));
+  fs.lseek(0, 0);
+  char buf[66] = {'\0'};
+  char checkMe[66] = {'\0'};
+  checkMe[0] = 'f';
+  checkMe[1] = 'f';
+  checkMe[2] = 'f';
+  ASSERT_EQ(3, fs.read(0, buf, 10));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(1, 0);
+  checkMe[0] = 'j';
+  checkMe[1] = 'j';
+  checkMe[2] = 'j';
+  ASSERT_EQ(3, fs.read(1, buf, 10));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(2, 0);
+  checkMe[0] = 'm';
+  checkMe[1] = 'm';
+  checkMe[2] = 'm';
+  ASSERT_EQ(3, fs.read(2, buf, 10));
+  ASSERT_STREQ(checkMe, buf);
+}
+
+TEST(FileSystem53, CanResumeReadMoreThanOneBlockOfCharToOpenFile)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  int index = fs.open("Test.txt");
+  ASSERT_EQ(1, fs.write(index, 'f', 66));
+  char checkMe[256] = {'\0'};
+  char buf[256] = {'\0'};
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'f';
+  }
+  fs.lseek(0, 0);
+  ASSERT_EQ(66, fs.read(index, buf, 66));
+  ASSERT_STREQ(checkMe, buf);
+  ASSERT_EQ(1, fs.write(index, 'f', 66));
+  fs.lseek(0, 0);
+  for(int i = 66; i < 66 * 2; ++i)
+  {
+    checkMe[i] = 'f';
+  }
+  ASSERT_EQ(132, fs.read(index, buf, 900));
+  ASSERT_STREQ(checkMe, buf);
+}
+
+TEST(FileSystem53,
+     CanResumeReadMoreThanOneBlockOfCharToOpenFileIfAllThreeAreOpen)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  fs.open("Test.txt");
+  fs.create("Test2.txt");
+  fs.open("Test2.txt");
+  fs.create("Test3.txt");
+  fs.open("Test3.txt");
+  ASSERT_EQ(1, fs.write(0, 'f', 66));
+  char checkMe[256] = {'\0'};
+  char buf[256] = {'\0'};
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'f';
+  }
+  fs.lseek(0, 0);
+  ASSERT_EQ(66, fs.read(0, buf, 66));
+  ASSERT_STREQ(checkMe, buf);
+  ASSERT_EQ(1, fs.write(2, 'm', 66));
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'm';
+  }
+  fs.lseek(2, 0);
+  ASSERT_EQ(66, fs.read(2, buf, 66));
+  ASSERT_STREQ(checkMe, buf);
+  ASSERT_EQ(1, fs.write(1, 'j', 66));
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'j';
+  }
+  fs.lseek(1, 0);
+  ASSERT_EQ(66, fs.read(1, buf, 66));
+  ASSERT_STREQ(checkMe, buf);
+  ASSERT_EQ(1, fs.write(2, 'm', 66));
+  for(int i = 0; i < 66 * 2; ++i)
+  {
+    checkMe[i] = 'm';
+  }
+  fs.lseek(2, 0);
+  ASSERT_EQ(132, fs.read(2, buf, 800));
+  ASSERT_STREQ(checkMe, buf);
+  ASSERT_EQ(1, fs.write(0, 'f', 66));
+  for(int i = 0; i < 66 * 2; ++i)
+  {
+    checkMe[i] = 'f';
+  }
+  fs.lseek(0, 0);
+  ASSERT_EQ(132, fs.read(0, buf, 800));
+  ASSERT_STREQ(checkMe, buf);
+  ASSERT_EQ(1, fs.write(1, 'j', 66));
+  for(int i = 0; i < 66 * 2; ++i)
+  {
+    checkMe[i] = 'j';
+  }
+  fs.lseek(1, 0);
+  ASSERT_EQ(132, fs.read(1, buf, 800));
+  ASSERT_STREQ(checkMe, buf);
+}
+
+TEST(FileSystem53, CanOverreadOneCharToOpenFile)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  int index = fs.open("Test.txt");
+  char checkMe[8] = {'\0'};
+  checkMe[0] = 'f';
+  char buf[8] = {'\0'};
+  ASSERT_EQ(1, fs.write(index, 'f', 1));
+  fs.lseek(0, 0);
+  ASSERT_EQ(1, fs.read(index, buf, 8));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(0, 0);
+  ASSERT_EQ(1, fs.write(index, 'j', 1));
+  fs.lseek(0, 0);
+  checkMe[0] = 'j';
+  ASSERT_EQ(1, fs.read(index, buf, 8));
+  ASSERT_STREQ(checkMe, buf);
+}
+
+TEST(FileSystem53, CanOverreadOneCharToOpenFileIfAllThreeAreOpen)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  fs.open("Test.txt");
+  fs.create("Test2.txt");
+  fs.open("Test2.txt");
+  fs.create("Test3.txt");
+  fs.open("Test3.txt");
+  ASSERT_EQ(1, fs.write(0, 'f', 1));
+  ASSERT_EQ(1, fs.write(1, 'j', 1));
+  ASSERT_EQ(1, fs.write(2, 'm', 1));
+  fs.lseek(0, 0);
+  char buf[8] = {'\0'};
+  char checkMe[8] = {'\0'};
+  checkMe[0] = 'f';
+  ASSERT_EQ(1, fs.read(0, buf, 8));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(1, 0);
+  checkMe[0] = 'j';
+  ASSERT_EQ(1, fs.read(1, buf, 8));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(2, 0);
+  checkMe[0] = 'm';
+  ASSERT_EQ(1, fs.read(2, buf, 8));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(0, 0);
+  fs.lseek(1, 0);
+  fs.lseek(2, 0);
+  ASSERT_EQ(1, fs.write(0, 'l', 1));
+  ASSERT_EQ(1, fs.write(1, 'h', 1));
+  ASSERT_EQ(1, fs.write(2, 'k', 1));
+  fs.lseek(0, 0);
+  checkMe[0] = 'l';
+  ASSERT_EQ(1, fs.read(0, buf, 8));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(1, 0);
+  checkMe[0] = 'h';
+  ASSERT_EQ(1, fs.read(1, buf, 8));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(2, 0);
+  checkMe[0] = 'k';
+  ASSERT_EQ(1, fs.read(2, buf, 8));
+  ASSERT_STREQ(checkMe, buf);
+}
+
+TEST(FileSystem53, CanOverreadMoreThanOneBlockOfCharToOpenFile)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  int index = fs.open("Test.txt");
+  ASSERT_EQ(1, fs.write(index, 'f', 66));
+  fs.lseek(0, 0);
+  char buf[256] = {'\0'};
+  char checkMe[256] = {'\0'};
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'f';
+  }
+  ASSERT_EQ(66, fs.read(index, buf, 800));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(0, 0);
+  ASSERT_EQ(1, fs.write(index, 'k', 66));
+  fs.lseek(0, 0);
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'k';
+  }
+  ASSERT_EQ(66, fs.read(index, buf, 800));
+  ASSERT_STREQ(checkMe, buf);
+}
+
+TEST(FileSystem53, CanOverreadMoreThanOneBlockOfCharToOpenFileIfAllThreeAreOpen)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  fs.open("Test.txt");
+  fs.create("Test2.txt");
+  fs.open("Test2.txt");
+  fs.create("Test3.txt");
+  fs.open("Test3.txt");
+  ASSERT_EQ(1, fs.write(0, 'f', 66));
+  ASSERT_EQ(1, fs.write(1, 'j', 66));
+  ASSERT_EQ(1, fs.write(2, 'm', 66));
+  fs.lseek(0, 0);
+  char buf[256] = {'\0'};
+  char checkMe[256] = {'\0'};
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'f';
+  }
+  ASSERT_EQ(66, fs.read(0, buf, 800));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(1, 0);
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'j';
+  }
+  ASSERT_EQ(66, fs.read(1, buf, 800));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(2, 0);
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'm';
+  }
+  ASSERT_EQ(66, fs.read(2, buf, 800));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(0, 0);
+  fs.lseek(1, 0);
+  fs.lseek(2, 0);
+  ASSERT_EQ(1, fs.write(0, 'h', 66));
+  ASSERT_EQ(1, fs.write(1, 'i', 66));
+  ASSERT_EQ(1, fs.write(2, 'l', 66));
+  fs.lseek(0, 0);
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'h';
+  }
+  ASSERT_EQ(66, fs.read(0, buf, 800));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(1, 0);
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'i';
+  }
+  ASSERT_EQ(66, fs.read(1, buf, 800));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(2, 0);
+  for(int i = 0; i < 66; ++i)
+  {
+    checkMe[i] = 'l';
+  }
+  ASSERT_EQ(66, fs.read(2, buf, 800));
+  ASSERT_STREQ(checkMe, buf);
+}
+
+TEST(FileSystem53, CanResumeOverreadOneCharToOpenFile)
+{
+  FileSystem53 fs;
+  fs.create("Test.txt");
+  int index = fs.open("Test.txt");
+  ASSERT_EQ(1, fs.write(index, 'f', 1));
+  ASSERT_EQ(1, fs.write(index, 'h', 2));
+  fs.lseek(0, 0);
+  char buf[8] = {0};
+  char checkMe[8] = {0};
+  checkMe[0] = 'f';
+  checkMe[1] = 'h';
+  checkMe[2] = 'h';
+  ASSERT_EQ(3, fs.read(index, buf, 20));
+  ASSERT_STREQ(checkMe, buf);
+  fs.lseek(0, 0);
+  ASSERT_EQ(1, fs.write(index, 'k', 1));
+  ASSERT_EQ(1, fs.write(index, 'l', 2));
+  fs.lseek(0, 0);
+  checkMe[0] = 'k';
+  checkMe[1] = 'l';
+  checkMe[2] = 'l';
+  ASSERT_EQ(3, fs.read(index, buf, 20));
+  ASSERT_STREQ(checkMe, buf);
+}
+
+//Not implemented tests
+TEST(FileSystem53, CanNotCreateTwoFilesWithSameName) {}
+TEST(FileSystem53, CanNotOpenFileNotCreated) {}

@@ -52,9 +52,9 @@ class FileSystem53
   {
     struct OpenFile
     {
-      char buf[B]; // Copy of block we're in
-      char pos;    // What to read/write next (0..(B*3)).
-      char index;  // Our index in File Descriptor
+      char buf[B];       // Copy of block we're in
+      unsigned char pos; // What to read/write next (0..(B*3)).
+      char index;        // Our index in File Descriptor
     };
     OpenFile table[3];
     bool open[3];
@@ -79,7 +79,7 @@ public:
   int create(const std::string &fileName);
   int openDesc(int desc_no);
   int open(const std::string &fileName);
-  int read(int index, char *mem_area, int count);
+  int read(int index, char *memArea, int count);
   int write(int index, char value, int count);
   int lseek(int index, int pos);
   void close(int index);
