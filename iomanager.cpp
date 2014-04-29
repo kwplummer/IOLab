@@ -3,15 +3,9 @@
 #include <fstream>
 #include <iostream>
 
-void IOManager::read_block(int i, char *p) const
-{
-  mempcpy(p, ldisk[i], B);
-}
+void IOManager::read_block(int i, char *p) const { mempcpy(p, ldisk[i], B); }
 
-void IOManager::write_block(int i, char *p)
-{
-  mempcpy(ldisk[i], p, B);
-}
+void IOManager::write_block(int i, char *p) { mempcpy(ldisk[i], p, B); }
 
 void IOManager::load(const std::string &name)
 {

@@ -1,3 +1,4 @@
+/*
 #include <iostream>
 #include <assert.h>
 #include <string.h>
@@ -15,3 +16,4 @@ int main()
   assert(strcmp("Hey", hey) == 0);
   io.save("Outfile.txt");
 }
+*/
