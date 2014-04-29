@@ -365,8 +365,6 @@ TEST(FileSystem53,
   ASSERT_EQ(1, fs.write(1, 'j', 66));
 }
 
-// READ joiewgjewoijgoeiwjhoewjgowejgow
-
 TEST(FileSystem53, ReadingFromInvalidFileHasError)
 {
   FileSystem53 fs;
@@ -422,8 +420,8 @@ TEST(FileSystem53, CanReadMoreThanOneBlockOfCharToOpenFile)
   fs.create("Test.txt");
   int index = fs.open("Test.txt");
   ASSERT_EQ(1, fs.write(index, 'f', 66));
-  char checkMe[67];
-  char buf[256];
+  char checkMe[67] = {0};
+  char buf[256] = {0};
   for(int i = 0; i < 66; ++i)
   {
     checkMe[i] = 'f';
@@ -881,6 +879,6 @@ TEST(FileSystem53, CanResumeOverreadOneCharToOpenFile)
   ASSERT_STREQ(checkMe, buf);
 }
 
-//Not implemented tests
+// Not implemented tests
 TEST(FileSystem53, CanNotCreateTwoFilesWithSameName) {}
 TEST(FileSystem53, CanNotOpenFileNotCreated) {}

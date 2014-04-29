@@ -9,6 +9,7 @@ int FileSystem53::findOft() {}
 void FileSystem53::deallocateOft(int index) {}
 
 // If you accept my create(), you must accept these changes!
+// My create depends on file descriptor sizes being -1 until created.
 void FileSystem53::format()
 {
   char bytemap[B];
@@ -118,7 +119,6 @@ int FileSystem53::create(const std::string &fileName)
       // Set our file descriptor to used, and write it.
       char fileIndex = newIndex % (B / 4);
       descriptorBlock[4 * fileIndex] = 0;
-      char REMOVEME = 1 + (newIndex / B / 4);
       io.write_block(1 + newIndex / 4, descriptorBlock);
 
       return 0;
@@ -166,7 +166,7 @@ int FileSystem53::openDesc(int desc_no) {}
 
 int FileSystem53::open(const std::string &fileName)
 {
-  // Get the file descriptor for the director
+  // Get the file descriptor for the directory
   char directoryDescriptor[B];
   io.read_block(directoryIndex, directoryDescriptor);
   // Go block by block from the directory.
@@ -201,25 +201,7 @@ int FileSystem53::open(const std::string &fileName)
   }
   return -1;
 }
-/*    Actual number of bytes returned in mem_area[].
- *    -1 value for error case "File hasn't been open"
- *    -2 value for error case "End-of-file"
- TODOs:
-     1. Read the open file table using index.
-        1.1 Get the file descriptor number and the current position.
-        1.2 Can't get proper file descriptor, return -1.
-     2. Read the file descriptor
-        2.1 Get file size and block array.
-     3. Read 'count' byte(s) from file and store in mem_area[].
-        3.1 If current position crosses block boundary, call read_block() to
- read the next block.
-        3.2 If current position==file size, stop reading and return.
-        3.3 If this is called when current position==file size, return -2.
-        3.4 If count > mem_area size, only size of mem_area should be read.
-        3.5 Returns actual number of bytes read from file.
-        3.6 Update current position so that next read() can be done from the
- first byte haven't-been-read.
-  */
+
 int FileSystem53::read(int index, char *memArea, int count)
 {
   // If the index is negative, too big, or not open
@@ -291,20 +273,6 @@ int FileSystem53::read(int index, char *memArea, int count)
   return numberRead;
 }
 
-/* File Write function:
- *    This writes 'count' number of 'value'(s) to the file indicated by index.
- *    Writing should start from the point pointed by current position of the
- * file.
- *    Current position should be updated accordingly.
- * Parameter(s):
- *    index: File index which indicates the file to be read.
- *    value: a character to be written.
- *    count: Number of repetition.
- * Return:
- *    >0 for successful write
- *    -1 value for error case "File hasn't been open"
- *    -2 for error case "Maximum file size reached" (not implemented.)
- */
 int FileSystem53::write(int index, char value, int count)
 {
   // If the index is negative, too big, or not open
