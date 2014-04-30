@@ -4,11 +4,14 @@ GTEST_FLAGS=/usr/lib/libgtest.a /usr/lib/libgtest_main.a -lpthread
 
 ALL: program tests
 
-program: main.o iomanager.o
-	$(CXX) -o lab1 main.o iomanager.o $(CFLAGS)
+program: main.o iomanager.o filesystem53.o
+	$(CXX) -o lab1 main.o iomanager.o filesystem53.o $(CFLAGS)
 
-tests: tests.o iomanager.o
-	$(CXX) -o tests tests.o iomanager.o $(GTEST_FLAGS) $(CFLAGS)
+tests: tests.o iomanager.o filesystem53.o
+	$(CXX) -o tests tests.o iomanager.o filesystem53.o $(GTEST_FLAGS) $(CFLAGS)
+
+filesystem53.o: filesystem53.cpp
+	$(CXX) -c -o filesystem53.o filesystem53.cpp $(CFLAGS)
 
 iomanager.o: iomanager.cpp
 	$(CXX) -c -o iomanager.o iomanager.cpp $(CFLAGS)
