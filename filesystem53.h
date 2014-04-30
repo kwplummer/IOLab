@@ -64,13 +64,24 @@ class FileSystem53
     struct OpenFile
     {
       char buf[B]; //Copy of block we're in
-      char pos; //What to read/write next (0..(B*3)).
-      char index; //Our index in File Descriptor
+      unsigned char pos; // What to read/write next (0..(B*3)).
+      unsigned char index;        // Our index in File Descriptor
     };
     OpenFile table[3];
     bool open[3];
     OFT() : open({false,false,false}) {}
   } table;
+  
+  // ERROR CODES
+  static const int EC_FILE_NOT_OPEN = -1;
+  static const int EC_NEGATIVE_SEEK_POSITION = -100;
+
+  // FILE DESCRIPTOR CONSTANTS
+  static const int FD_DIRECTORY_FILE_DESCRIPTOR_INDEX = 0;
+  static const int FD_FILE_SIZE = 0;
+  static const int FD_FIRST_BLOCK = 1;
+  static const int FD_SECOND_BLOCK = 2;
+  static const int FD_THIRD_BLOCK = 3;  
 
 public:
   /* Constructor of this File system.
