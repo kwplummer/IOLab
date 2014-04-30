@@ -105,4 +105,6 @@ public:
   FRIEND_TEST(FileSystem53, NoFilesOpenAtStart);
   FRIEND_TEST(FileSystem53, CanOpenFile);
   FRIEND_TEST(FileSystem53, CanOpenAllThreeFiles);
+  //REMOVE THIS, IT IS FOR TESTING.
+  void lseek_broken(int index, int pos);
 };

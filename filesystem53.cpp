@@ -1,5 +1,6 @@
 #include "filesystem53.h"
 #include <string.h>
+#include <iostream>
 FileSystem53::FileSystem53() : directoryIndex(7) { format(); }
 
 void FileSystem53::OpenFileTable() {}
@@ -446,6 +447,26 @@ int FileSystem53::lseek(int index, int pos)
   }
 
   return 0;
+}
+
+void FileSystem53::lseek_broken(int index, int pos)
+{
+  const int oldBlock = 1 + (table.table[index].pos / B);
+  table.table[index].pos = pos;
+  const int currentBlock = 1 + (table.table[index].pos / B);
+  if(oldBlock != currentBlock)
+  {
+    char fileDescriptor[B];
+    const int totalFileIndex = table.table[index].index;
+    const int fileIndex = totalFileIndex % (B / 4);
+    const int descriptorIndex = 1 + ((totalFileIndex * 4) / B);
+    io.read_block(descriptorIndex, fileDescriptor);
+    // Write what we have to disk.
+    io.write_block(fileDescriptor[(fileIndex * 4) + oldBlock],
+                   table.table[index].buf);
+    io.read_block(fileDescriptor[(fileIndex * 4) + currentBlock],
+                  table.table[index].buf);
+  }
 }
 
 void FileSystem53::close(int index) {}
