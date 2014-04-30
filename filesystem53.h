@@ -60,6 +60,17 @@ class FileSystem53
     bool open[3];
     OFT();
   } table;
+  
+  // ERROR CODES
+  static const int EC_FILE_NOT_OPEN = -1;
+  static const int EC_NEGATIVE_SEEK_POSITION = -100;
+
+  // FILE DESCRIPTOR CONSTANTS
+  static const int FD_DIRECTORY_FILE_DESCRIPTOR_INDEX = 0;
+  static const int FD_FILE_SIZE = 0;
+  static const int FD_FIRST_BLOCK = 1;
+  static const int FD_SECOND_BLOCK = 2;
+  static const int FD_THIRD_BLOCK = 3;  
 
 public:
   FileSystem53();
