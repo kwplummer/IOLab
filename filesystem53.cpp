@@ -1,7 +1,18 @@
 #include "filesystem53.h"
 #include <string.h>
 #include <iostream>
-FileSystem53::FileSystem53() : directoryIndex(7) { format(); }
+FileSystem53::FileSystem53() : directoryIndex(7) {
+	// format the disk all the time per TA's instruction
+	format();
+
+	// restore ldisk contents
+	restore(LDISK_FILE_NAME);
+
+	// copy descriptor table from ldisk to descTable
+	for( int i = START_INDEX_BLOCK_DESC_TABLE ; i <= END_INDEX_BLOCK_DESC_TABLE ; i++ ){
+		io.read_block(i,descTable[i]);
+	}
+}
 
 void FileSystem53::OpenFileTable() {}
 

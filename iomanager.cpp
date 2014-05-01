@@ -12,7 +12,10 @@ void IOManager::load(const std::string &name)
   std::ifstream in(name.c_str());
   if(in.fail())
   {
-    std::cout << "Is not open.\n";
+	// We are suppressing output
+	// If there is simply no ldisk file,
+	// it should not be seen as an error
+    //std::cout << "Is not open.\n";
   }
   else
   {

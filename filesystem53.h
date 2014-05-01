@@ -46,7 +46,7 @@ class FileSystem53
   static const int FILEIO_BUFFER_SIZE = 64; // Size of file io bufer
   static const int _EOF = -1;               // End-of-File
   const int directoryIndex;
-  char descTable[K][B]; // Unused?
+  char descTable[K][B]; 
   IOManager io;
   struct OFT
   {
@@ -71,6 +71,10 @@ class FileSystem53
   static const int FD_FIRST_BLOCK = 1;
   static const int FD_SECOND_BLOCK = 2;
   static const int FD_THIRD_BLOCK = 3;  
+  
+  std::string LDISK_FILE_NAME = "ldisk.txt";
+  static const int START_INDEX_BLOCK_DESC_TABLE = 0;
+  static const int END_INDEX_BLOCK_DESC_TABLE = 6;  
 
 public:
   FileSystem53();
