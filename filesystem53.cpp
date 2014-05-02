@@ -648,13 +648,13 @@ void FileSystem53::diskDump(int start, int size) {}
 int FileSystem53::addBlock()
 {
   char bytemap[B];
-  bytemap = descTable[0];
+  memcpy(bytemap, descTable[0],B);
   for(int i = 0; i < B; ++i)
   {
     if(!bytemap[i])
     {
       bytemap[i] = 1;
-      descTable[0] = bytemap;
+      memcpy(descTable[0],bytemap,B);
       io.write_block(0, bytemap);
       return i;
     }
