@@ -69,7 +69,39 @@ char *FileSystem53::readDescriptor(int no)
 
 void FileSystem53::clearDescriptor(int no) {}
 
-void FileSystem53::writeDescriptor(int no, char *desc) {}
+/* Write descriptor
+ *   1. Update descriptor entry
+ *   2. Mark bitmap
+ *   3. Write back to disk
+ * Parameter(s):
+ *    no: Descriptor number to write
+ *    desc: descriptor to write
+ * Return:
+ *    none
+ */
+void FileSystem53::writeDescriptor(int no, const std::string &desc)
+{
+
+  const int rawFileDescriptorIndexOffset = no * 4;
+  const int rawFileDescriptorIndexBlockNumber =
+      (rawFileDescriptorIndexOffset / B) + 1;
+  int rawFileDescriptorIndexBlockPosition = rawFileDescriptorIndexOffset % B;
+
+  // grab the descTable block
+  char *descriptorBlock = descTable[rawFileDescriptorIndexBlockNumber];
+
+  // modify descriptorBlock from index rawFileDescriptorIndexBlockPosition to
+  // rawFileDescriptorIndexBlockPosition + 4
+  for(int i = 0; i < 4; ++i)
+  {
+    descriptorBlock[++rawFileDescriptorIndexBlockPosition] = desc[i];
+  }
+
+  // mark bitmap
+
+  // write back to disk
+  io.write_block(rawFileDescriptorIndexBlockNumber, descriptorBlock);
+}
 
 int FileSystem53::findEmptyDescriptor() {}
 
@@ -195,10 +227,18 @@ int FileSystem53::openDesc(int desc_no) {}
 int FileSystem53::open(const std::string &fileName)
 {
   // Get the file descriptor for the directory
-  char directoryDescriptor[B];
-  io.read_block(directoryIndex, directoryDescriptor);
+  // go to the open file table to grab file descriptor index of directory
+  int directoryIndex = table.table[OFT_DIRECTORY_INDEX].index;
+
+  // use file descriptor index to grab the file descriptor from the descTtable
+  char directoryDescriptor[4];
+  // io.read_block(directoryIndex, directoryDescriptor);
+  directoryDesciptor = readDescriptor(directoryIndex);
+  int byteCount = 0;
+
   // Go block by block from the directory.
-  for(int i = 1; i <= directoryDescriptor[0]; ++i)
+  for(int i = 1;
+      i <= FD_THIRD_BLOCK && byteCount < directoryDescriptor[FD_FILE_SIZE]; ++i)
   {
     char directoryBlock[B];
     io.read_block(directoryDescriptor[i], directoryBlock);
@@ -206,28 +246,23 @@ int FileSystem53::open(const std::string &fileName)
     {
       if(strncmp(directoryBlock + j, fileName.c_str(), MAX_FILE_NAME_LEN) == 0)
       {
-        // Found it, now add it to the OFT if possible.
-        bool found = false;
-        for(int i = 0; i < 3; ++i)
+        for(int k = 0; k < 3; ++k)
         {
-          if(!table.open[i])
+          if(!table.open[k])
           {
-            found = true;
-            memset(table.table[i].buf, 0, B);
-            table.table[i].pos = 0;
-            table.table[i].index = directoryBlock[j + MAX_FILE_NAME_LEN];
-            table.open[i] = true;
-            return i;
+            memset(table.table[k].buf, 0, B);
+            table.table[k].pos = 0;
+            table.table[k].index = directoryBlock[j + MAX_FILE_NAME_LEN];
+            table.open[k] = true;
+            return k;
           }
         }
-        if(!found)
-        {
-          return -2;
-        }
+        return EC_OFT_FULL;
       }
+      ++byteCount;
     }
   }
-  return -1;
+  return EC_FILE_NOT_OPEN;
 }
 
 int FileSystem53::read(int index, char *memArea, int count)
@@ -469,7 +504,31 @@ void FileSystem53::lseek_broken(int index, int pos)
   }
 }
 
-void FileSystem53::close(int index) {}
+int FileSystem53::close(int index)
+{
+  char fileDescriptor[4];
+  const int oldBlock = 1 + (table.table[index].pos / B);
+  const int fileDescriptorIndex = table.table[index].index;
+
+  fileDescriptor = readDescriptor(fileDescriptorIndex);
+
+  // Check if the index @ table is even open to begin with
+  if(!table.open[index])
+  {
+    return EC_FILE_NOT_OPEN;
+  }
+  // Freeing OFT entry
+  table.open[index] = false;
+
+  // Write the buffer to the disk
+  io.write_block(fileDescriptor[oldBlock], table.table[index].buf);
+
+  // Resetting to 0, saying there's nothing in this index.
+  table.table[index].pos = 0;
+  // The file that is open is being closed
+  table.table[index].index = 0;
+  return 0;
+}
 
 int FileSystem53::deleteFile(const std::string &fileName) {}
 
@@ -562,15 +621,23 @@ void FileSystem53::save(const std::string &name) { io.save(name); }
 
 void FileSystem53::diskDump(int start, int size) {}
 
+/*
+ * addBlock() marks the first available
+ * block in the bytemap and returns the block index
+ * that it marked.
+ *
+ * Note that it does not allocate the actual block with data.
+ */
 int FileSystem53::addBlock()
 {
   char bytemap[B];
-  io.read_block(0, bytemap);
+  bytemap = descTable[0];
   for(int i = 0; i < B; ++i)
   {
     if(!bytemap[i])
     {
       bytemap[i] = 1;
+      descTable[0] = bytemap;
       io.write_block(0, bytemap);
       return i;
     }

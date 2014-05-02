@@ -46,6 +46,7 @@ class FileSystem53
   static const int FILEIO_BUFFER_SIZE = 64; // Size of file io bufer
   static const int _EOF = -1;               // End-of-File
   const int directoryIndex;
+  static const int OFT_DIRECTORY_INDEX = 3;
   char descTable[K][B]; // Unused?
   IOManager io;
   struct OFT
@@ -56,21 +57,22 @@ class FileSystem53
       unsigned char pos; // What to read/write next (0..(B*3)).
       char index;        // Our index in File Descriptor
     };
-    OpenFile table[3];
+    OpenFile table[4];
     bool open[3];
     OFT();
   } table;
-  
+
   // ERROR CODES
   static const int EC_FILE_NOT_OPEN = -1;
   static const int EC_NEGATIVE_SEEK_POSITION = -100;
+  static const int EC_OFT_FULL = -2;
 
   // FILE DESCRIPTOR CONSTANTS
   static const int FD_DIRECTORY_FILE_DESCRIPTOR_INDEX = 0;
   static const int FD_FILE_SIZE = 0;
   static const int FD_FIRST_BLOCK = 1;
   static const int FD_SECOND_BLOCK = 2;
-  static const int FD_THIRD_BLOCK = 3;  
+  static const int FD_THIRD_BLOCK = 3;
 
 public:
   FileSystem53();
@@ -80,7 +82,7 @@ public:
   void format();
   char *readDescriptor(int no);
   void clearDescriptor(int no);
-  void writeDescriptor(int no, char *desc);
+  void writeDescriptor(int no, const std::string &desc);
   int findEmptyDescriptor();
   int findEmptyBlock();
   int fgetc(int index);
@@ -93,7 +95,7 @@ public:
   int read(int index, char *memArea, int count);
   int write(int index, char value, int count);
   int lseek(int index, int pos);
-  void close(int index);
+  int close(int index);
   int deleteFile(const std::string &fileName);
   void directory();
   void restore(const std::string &name);
@@ -105,6 +107,6 @@ public:
   FRIEND_TEST(FileSystem53, NoFilesOpenAtStart);
   FRIEND_TEST(FileSystem53, CanOpenFile);
   FRIEND_TEST(FileSystem53, CanOpenAllThreeFiles);
-  //REMOVE THIS, IT IS FOR TESTING.
+  // REMOVE THIS, IT IS FOR TESTING.
   void lseek_broken(int index, int pos);
 };
