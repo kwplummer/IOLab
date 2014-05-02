@@ -265,17 +265,17 @@ int FileSystem53::open(const std::string &fileName)
             table.table[k].pos = 0;
             table.table[k].index = directoryBlock[j + MAX_FILE_NAME_LEN];
             table.open[k] = true;
-            delete [] directoryDescriptor;
+            delete[] directoryDescriptor;
             return k;
           }
         }
-        delete [] directoryDescriptor;
+        delete[] directoryDescriptor;
         return EC_OFT_FULL;
       }
       ++byteCount;
     }
   }
-  delete []directoryDescriptor;
+  delete[] directoryDescriptor;
   return EC_FILE_NOT_OPEN;
 }
 
@@ -494,7 +494,7 @@ int FileSystem53::lseek(int index, int pos)
                       static_cast<unsigned char>(fileDescriptor[currentBlock])),
                   table.table[index].buf);
   }
-  delete []fileDescriptor;
+  delete[] fileDescriptor;
   return 0;
 }
 
@@ -528,7 +528,7 @@ int FileSystem53::close(int index)
   // Check if the index @ table is even open to begin with
   if(!table.open[index])
   {
-    delete []fileDescriptor;
+    delete[] fileDescriptor;
     return EC_FILE_NOT_OPEN;
   }
   // Freeing OFT entry
@@ -614,7 +614,7 @@ void FileSystem53::directory()
             }
 
             k = 0;
-            delete []fileDescriptor;
+            delete[] fileDescriptor;
           }
           else
           {
@@ -629,7 +629,7 @@ void FileSystem53::directory()
       }
     }
   }
-  delete []directoryFileDescriptor; 
+  delete[] directoryFileDescriptor;
 }
 
 void FileSystem53::restore(const std::string &name) { io.load(name); }
@@ -648,13 +648,13 @@ void FileSystem53::diskDump(int start, int size) {}
 int FileSystem53::addBlock()
 {
   char bytemap[B];
-  memcpy(bytemap, descTable[0],B);
+  memcpy(bytemap, descTable[0], B);
   for(int i = 0; i < B; ++i)
   {
     if(!bytemap[i])
     {
       bytemap[i] = 1;
-      memcpy(descTable[0],bytemap,B);
+      memcpy(descTable[0], bytemap, B);
       io.write_block(0, bytemap);
       return i;
     }
