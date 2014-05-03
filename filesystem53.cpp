@@ -15,9 +15,52 @@ FileSystem53::FileSystem53() : directoryIndex(7), LDISK_FILE_NAME("ldisk.txt")
   {
     io.read_block(i, descTable[i]);
   }
+
+  OpenFileTable();
+
+  // per TA's instruction,
+  // the directory should always be in the OFT
+  // under a special "hidden" 4th slot (i.e. index 3).
+  // Therefore, we have hard coded the hidden OFT index containing the
+  // directory file as a constant
+  char *fileDescriptor = readDescriptor(FD_DIRECTORY_FILE_DESCRIPTOR_INDEX);
+  // if the directory file is available,
+  if( fileDescriptor[FD_FILE_SIZE] >= 0 ){
+
+	  char *dataBlock = new char[B];
+
+	  // if the directory file is NOT empty
+	  if( fileDescriptor[FD_FILE_SIZE] == 0 ){
+	  	  // get the first block of the directory file from ldisk
+		  io.read_block( fileDescriptor[FD_FIRST_BLOCK], dataBlock );
+
+	  // else
+	  }else{
+	  	  // fill the data block will null values
+	  	  for( int i ; i < B ; ++i ){
+	  		  dataBlock[i] = 0;
+	  	  }
+  	  }
+
+	  // load directory data block in the open file table
+	  initializeOFT( OFT_DIRECTORY_INDEX, dataBlock, FD_DIRECTORY_FILE_DESCRIPTOR_INDEX );
+  }
+
 }
 
-void FileSystem53::OpenFileTable() {}
+void FileSystem53::OpenFileTable() {
+	char blankData[B];
+	int i;
+	for( i = 0 ; i < B ; ++i ){
+		blankData[i] = 0;
+	}
+
+	for( i = 0 ; i < MAX_OPEN_FILE ; ++i ){
+		table.table[i].pos = 0;
+		table.table[i].index = -1;
+		mempcpy( table.table[i].buf , blankData , B );
+	}
+}
 
 int FileSystem53::findOft() {}
 
@@ -53,7 +96,7 @@ void FileSystem53::format()
 }
 
 // variable "no" is expected to be a 0 based file descriptor index
-// However, since the file descriptors are 4 bytes each
+// However, since the file descriptors are 4 bytes each,
 // we need to calculate the offset by 4 bytes
 // Therefore,
 // input of 0 means file descriptor index 0
@@ -110,8 +153,6 @@ void FileSystem53::writeDescriptor(int no, const std::string &desc)
     descriptorBlock[++rawFileDescriptorIndexBlockPosition] = desc[i];
   }
 
-  // mark bitmap
-
   // write back to disk
   io.write_block(rawFileDescriptorIndexBlockNumber, descriptorBlock);
 }
@@ -126,7 +167,56 @@ int FileSystem53::fputc(int c, int index) {}
 
 bool FileSystem53::feof(int index) {}
 
-int FileSystem53::searchDir(int index, const std::string &fileName) {}
+int FileSystem53::searchDir(const std::string &fileName, char *directoryDataMemArea) {
+
+	int fileDescriptorIndex;
+	bool fileNameMatch;
+
+	char *directoryData = new char[DIRECTORY_DATA_CHUNK_SIZE];
+	std::string foundFileName;
+	std::string xx;
+	// perform a linear search for the file
+	lseek( OFT_DIRECTORY_INDEX , 0 );
+	int directoryDataByteLocation = 0;
+
+	int directoryDataSize = read(OFT_DIRECTORY_INDEX, directoryData , DIRECTORY_DATA_CHUNK_SIZE );
+
+	while( directoryDataSize != EC_EOF ){
+		foundFileName.clear();
+		for( int i = 0 ; i < DIRECTORY_DATA_CHUNK_SIZE-1 && directoryData[i] != -1 ; ++i ){
+			foundFileName.insert(i,1,directoryData[i]);
+		}
+		/*
+		std::cout << "Direcotry Data " << directoryData << std::endl;
+		for( int k = 0 ; k < DIRECTORY_DATA_CHUNK_SIZE ; k++ ){
+			std::cout << directoryData[k];
+		}
+		std::cout << std::endl;
+		std::cout << "Found File Name=" << foundFileName << std::endl;
+
+		std::cout << "Position " << static_cast<int>(static_cast<unsigned char>( table.table[3].pos ) ) << std::endl;
+		std::cin >> xx;
+		*/
+		// if the found file name matches the input file name
+		if( foundFileName == fileName ){
+
+			//copy over directory data to memory area
+			for( int i = 0 ; i < DIRECTORY_DATA_CHUNK_SIZE ; ++i ){
+				directoryDataMemArea[i] = directoryData[i];
+			}
+			delete[] directoryData;
+
+			// return file descriptor index
+			return directoryDataByteLocation;
+		}
+		directoryDataSize = read(OFT_DIRECTORY_INDEX, directoryData , DIRECTORY_DATA_CHUNK_SIZE );
+		directoryDataByteLocation += DIRECTORY_DATA_CHUNK_SIZE;
+	}
+
+	delete[] directoryData;
+
+	return EC_FILE_NOT_FOUND;
+}
 
 int FileSystem53::create(const std::string &fileName)
 {
@@ -291,6 +381,7 @@ int FileSystem53::read(int index, char *memArea, int count)
   {
     return 0;
   }
+
   int numberRead = 0;
   // The index of the file descriptor, not just in this block.
   const int totalFileIndex = table.table[index].index;
@@ -311,6 +402,12 @@ int FileSystem53::read(int index, char *memArea, int count)
   if(!fileDescriptor[fileIndex * 4])
   {
     return 0;
+  }
+
+  // If the current position == file size before any reading even began for this call,
+  // and the count > 0, return EC_EOF;
+  if( static_cast<int>(static_cast<unsigned char>(fileDescriptor[(fileIndex * 4)])) == table.table[index].pos ){
+	  return EC_EOF;
   }
 
   for(int i = 0; i < count; ++i, ++relativePos, ++numberRead)
@@ -432,27 +529,6 @@ int FileSystem53::write(int index, char value, int count)
 int FileSystem53::lseek(int index, int pos)
 {
   // S/0 VERIFY FILE IS OPEN
-  /*
-  bool openFileTableIndex = -1;
-
-  // look for index among the open files
-  for( int i = 0 ; i < MAX_OPEN_FILE ; i++ ){
-  // if there is an open file in OpenFile index i
-  // and it has the same file descriptor index as the input,
-  // then the file is open
-  if( table.open[i] && table.table[i].index == index ){
-  openFileTableIndex = i;
-  break;
-  }
-  }
-
-  // if the file index being referenced is not open,
-  // return error code for File Not Open
-  if( openFileTableIndex == -1 ){
-  return EC_FILE_NOT_OPEN;
-  }
-  */
-
   if(!table.open[index])
   {
     return EC_FILE_NOT_OPEN;
@@ -468,8 +544,6 @@ int FileSystem53::lseek(int index, int pos)
   }
 
   // go to the file descriptor of this file to obtain the file size
-  // int fileDescriptorIndex = table.table[openFileTableIndex].index;
-  // char *fileDescriptor = readDescriptor(fileDescriptorIndex);
   char *fileDescriptor = readDescriptor(table.table[index].index);
 
   // if the position being requested goes beyond file size,
@@ -496,26 +570,6 @@ int FileSystem53::lseek(int index, int pos)
   }
   delete[] fileDescriptor;
   return 0;
-}
-
-void FileSystem53::lseek_broken(int index, int pos)
-{
-  const int oldBlock = 1 + (table.table[index].pos / B);
-  table.table[index].pos = pos;
-  const int currentBlock = 1 + (table.table[index].pos / B);
-  if(oldBlock != currentBlock)
-  {
-    char fileDescriptor[B];
-    const int totalFileIndex = table.table[index].index;
-    const int fileIndex = totalFileIndex % (B / 4);
-    const int descriptorIndex = 1 + ((totalFileIndex * 4) / B);
-    io.read_block(descriptorIndex, fileDescriptor);
-    // Write what we have to disk.
-    io.write_block(fileDescriptor[(fileIndex * 4) + oldBlock],
-                   table.table[index].buf);
-    io.read_block(fileDescriptor[(fileIndex * 4) + currentBlock],
-                  table.table[index].buf);
-  }
 }
 
 int FileSystem53::close(int index)
@@ -545,92 +599,121 @@ int FileSystem53::close(int index)
   return 0;
 }
 
-int FileSystem53::deleteFile(const std::string &fileName) {}
+int FileSystem53::destroy(const std::string &fileName){
+	deleteFile( fileName );
+}
+
+/* Delete file function:
+ *    Delete a file
+ * Parameter(s):
+ *    symbolic_file_name: a file name to be deleted.
+ * Return:
+ *    Return 0 with success
+ *    Return -1 with error (ie. No such file).
+ */
+int FileSystem53::deleteFile(const std::string &fileName) {
+
+	// look for file's descriptor index in directory file
+	char *directoryData = new char[DIRECTORY_DATA_CHUNK_SIZE];
+	int directoryFileByteLocation = searchDir(fileName,directoryData);
+	int fileDescriptorIndex = static_cast<int>(static_cast<unsigned char>( directoryData[DIRECTORY_DATA_CHUNK_SIZE-1] ));
+
+	// if file NOT found
+	if( directoryFileByteLocation == EC_FILE_NOT_FOUND ){
+		return EC_DELETE_FAILURE;
+	}
+
+	// grab file descriptor
+	char *fileDescriptor = readDescriptor(fileDescriptorIndex);
+
+	// if file is open
+	/*
+	 * Per instructor's note during lecture
+	 * File that are currently open cannot be deleted
+	 */
+	if( searchOFT(fileDescriptorIndex) != EC_FILE_NOT_OPEN ){
+		return EC_DELETE_FAILURE;
+	}
+
+	// clear out the bytemap corresponding to the blocks occupied by file
+	fileDescriptor[FD_FILE_SIZE] = -1;
+	for( int i = 1 ; i < DESCR_SIZE ; ++i ){
+		if( fileDescriptor[i] != -1 ){
+			descTable[BYTEMAP_BLOCK_INDEX][static_cast<int>(static_cast<unsigned char>( fileDescriptor[i] ))] = 0;
+		}
+		fileDescriptor[i] = -1;
+	}
+
+	// deallocate file from file descriptor
+	writeDescriptor(fileDescriptorIndex,fileDescriptor);
+
+	// remove entry from directory file
+	lseek(OFT_DIRECTORY_INDEX , directoryFileByteLocation);
+	write(OFT_DIRECTORY_INDEX , -1 , DIRECTORY_DATA_CHUNK_SIZE);
+
+	return 0; // success
+}
 
 void FileSystem53::directory()
 {
-  // get the file descriptor of the directory file
-  char *directoryFileDescriptor =
-      readDescriptor(FD_DIRECTORY_FILE_DESCRIPTOR_INDEX);
-
-  int byteCount = 0;
-  int directoryFileSize = static_cast<int>(
-      static_cast<unsigned char>(directoryFileDescriptor[FD_FILE_SIZE]));
-  int currentBlockIndex;
-  char *currentBlock = new char[B];
-  int i, j, k;
+  int i, k;
   char *fileDescriptor;
   int fileDescriptorIndex, fileSize;
 
-  // if the directory file is empty
-  if(directoryFileSize <= 0)
-  {
-    std::cout << "Directory File is empty!" << std::endl;
-  }
-  else
-  {
-    /*
-     * IF THE DIRECTORY FILE NEEDS TO BE ON THE OFT
-     * WE REGISTER IT HERE
-     */
+	// reset seek position to 0
+	lseek( OFT_DIRECTORY_INDEX , 0 );
 
-    // iterative over the blocks of the directory and output the data
-    for(i = FD_FIRST_BLOCK;
-        i <= FD_THIRD_BLOCK && byteCount < directoryFileSize; i++)
-    {
+	char *directory = new char[B];
 
-      currentBlockIndex = static_cast<int>(
-          static_cast<unsigned char>(directoryFileDescriptor[i]));
+	// read all the contents of directory
+	fileSize = read(OFT_DIRECTORY_INDEX, directory , MAX_FILE_SIZE );
 
-      // if the block specified by the file descriptor is valid
-      if(currentBlockIndex > 0)
-      {
-
-        // get that block from disk
-        io.read_block(currentBlockIndex, currentBlock);
-
+	if( fileSize == EC_FILE_NOT_OPEN ){
+		std::cout << "File hasn't been open \n";
+	}else if( fileSize == EC_EOF ){
+		std::cout << "End-of-file \n";
+	}else if( fileSize == 0 ){
+		std::cout << "File is empty! \n";
+	}else{
         k = 0; // file name string counter
 
-        // iterate over the files listed in this block
-        for(j = 0; j < B && byteCount < directoryFileSize; j++)
-        {
-          // if this is a file descriptor index byte
-          if(k == 10)
-          {
-            // File name display has been completed.
-            // Next, get the file size
-            fileDescriptorIndex =
-                static_cast<int>(static_cast<unsigned char>(currentBlock[j]));
-            fileDescriptor = readDescriptor(fileDescriptorIndex);
+		for( i = 0 ; i < fileSize ; i++ ){
 
-            std::cout << " " << static_cast<int>(static_cast<unsigned char>(
-                                    fileDescriptor[FD_FILE_SIZE])) << " bytes";
+		  // if this is a file descriptor index byte
+		  if(k == 10)
+		  {
+			// File name display has been completed.
+			// Next, get the file size
+			fileDescriptorIndex =
+				static_cast<int>(static_cast<unsigned char>(directory[i]));
+			fileDescriptor = readDescriptor(fileDescriptorIndex);
 
-            // if this is NOT the last file to be displayed
-            if(byteCount + 1 < directoryFileSize)
-            {
-              // display comma
-              std::cout << ", ";
-            }
+			std::cout << " " << static_cast<int>(static_cast<unsigned char>(
+									fileDescriptor[FD_FILE_SIZE])) << " bytes";
 
-            k = 0;
-            delete[] fileDescriptor;
-          }
-          else
-          {
-            if(currentBlock[j] != 0)
-            {
-              std::cout << currentBlock[j];
-            }
-            k++;
-          }
-          byteCount++;
-        }
-      }
-    }
-  }
-  delete[] directoryFileDescriptor;
+			// if this is NOT the last file to be displayed
+			if(i + 1 < fileSize)
+			{
+			  // display comma
+			  std::cout << ", ";
+			}
+
+			k = 0;
+			delete[] fileDescriptor;
+		  }
+		  else
+		  {
+			if(directory[i] > 0)
+			{
+			  std::cout << directory[i];
+			}
+			k++;
+		  }
+		}
+	}
+
 }
+
 
 void FileSystem53::restore(const std::string &name) { io.load(name); }
 
@@ -667,4 +750,22 @@ FileSystem53::OFT::OFT()
   open[0] = false;
   open[1] = false;
   open[2] = false;
+  open[3] = false;
 }
+
+void FileSystem53::initializeOFT( int oftIndex, char *dataBlock , char fileDescriptorIndex ){
+	table.table[oftIndex].index = fileDescriptorIndex;
+	table.table[oftIndex].pos = 0;
+	mempcpy(table.table[oftIndex].buf, dataBlock, B);
+	table.open[oftIndex] = true;
+}
+
+int FileSystem53::searchOFT(int fileDescriptorIndex){
+	for( int i = 0 ; i < MAX_OPEN_FILE ; i++ ){
+		if( table.open[i] && static_cast<int>( static_cast<unsigned char>( table.table[i].index ) ) == fileDescriptorIndex ){
+			return i;
+		}
+	}
+	return EC_FILE_NOT_OPEN;
+}
+

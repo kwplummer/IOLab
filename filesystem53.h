@@ -29,8 +29,7 @@
 
 #include <string>
 #include "iomanager.h"
-// REMOVE THIS INCLUDE:
-#include <gtest/gtest_prod.h>
+
 class FileSystem53
 {
   static const int B = 64; // Block length
@@ -47,7 +46,12 @@ class FileSystem53
   static const int _EOF = -1;               // End-of-File
   const int directoryIndex;
   char descTable[K][B];
+
   static const int OFT_DIRECTORY_INDEX = 3;
+  static const int MAX_FILE_SIZE = B*3;
+  static const int DIRECTORY_DATA_CHUNK_SIZE = 11;
+  static const int BYTEMAP_BLOCK_INDEX = 0;
+
   IOManager io;
   struct OFT
   {
@@ -58,14 +62,18 @@ class FileSystem53
       char index;        // Our index in File Descriptor
     };
     OpenFile table[4];
-    bool open[3];
+    bool open[4];
     OFT();
   } table;
 
   // ERROR CODES
   static const int EC_FILE_NOT_OPEN = -1;
+  static const int EC_FILE_NOT_FOUND = -1;
   static const int EC_NEGATIVE_SEEK_POSITION = -100;
   static const int EC_OFT_FULL = -2;
+  static const int EC_EOF = -2;
+  static const int EC_FILE_CURRENTLY_IN_USE = -200;
+  static const int EC_DELETE_FAILURE = -1;
 
   // FILE DESCRIPTOR CONSTANTS
   static const int FD_DIRECTORY_FILE_DESCRIPTOR_INDEX = 0;
@@ -91,7 +99,7 @@ public:
   int fgetc(int index);
   int fputc(int c, int index);
   bool feof(int index);
-  int searchDir(int index, const std::string &fileName);
+  int searchDir(const std::string &fileName, char *directoryDataMemArea);
   int create(const std::string &fileName);
   int openDesc(int desc_no);
   int open(const std::string &fileName);
@@ -106,10 +114,11 @@ public:
   void diskDump(int start, int size);
   // Personal additions:
   int addBlock();
-  // TESTS, REMOVE BEFORE SUBMITTING.
-  FRIEND_TEST(FileSystem53, NoFilesOpenAtStart);
-  FRIEND_TEST(FileSystem53, CanOpenFile);
-  FRIEND_TEST(FileSystem53, CanOpenAllThreeFiles);
-  // REMOVE THIS, IT IS FOR TESTING.
-  void lseek_broken(int index, int pos);
+
+  // Ben's personal additions
+  void initializeOFT( int oftIndex, char *dataBlock , char fileDescriptorIndex );
+  int destroy(const std::string &fileName);
+  int searchOFT(int fileDescriptorIndex);
+  void writeDirectory(const std::string &fileName,const char *directoryData);
 };
+
