@@ -29,7 +29,8 @@
 
 #include <string>
 #include "iomanager.h"
-
+// REMOVE THIS INCLUDE:
+#include <gtest/gtest_prod.h>
 class FileSystem53
 {
   static const int B = 64; // Block length
@@ -120,5 +121,13 @@ public:
   int destroy(const std::string &fileName);
   int searchOFT(int fileDescriptorIndex);
   void writeDirectory(const std::string &fileName,const char *directoryData);
+  
+  // TESTS, REMOVE BEFORE SUBMITTING.
+  FRIEND_TEST(FileSystem53, NoFilesOpenAtStart);
+  FRIEND_TEST(FileSystem53, CanOpenFile);
+  FRIEND_TEST(FileSystem53, CanOpenAllThreeFiles);
+  // REMOVE THIS, IT IS FOR TESTING.
+  void lseek_broken(int index, int pos);  
+  
 };
 
