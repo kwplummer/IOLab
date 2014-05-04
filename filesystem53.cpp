@@ -5,62 +5,13 @@ FileSystem53::FileSystem53() : directoryIndex(7), LDISK_FILE_NAME("ldisk.txt")
 {
   // format the disk all the time per TA's instruction
   format();
-
-  // restore ldisk contents
-  restore(LDISK_FILE_NAME);
-
-  // copy descriptor table from ldisk to descTable
-  for(int i = START_INDEX_BLOCK_DESC_TABLE; i <= END_INDEX_BLOCK_DESC_TABLE;
-      i++)
-  {
-    io.read_block(i, descTable[i]);
-  }
-
-  OpenFileTable();
-
-  // per TA's instruction,
-  // the directory should always be in the OFT
-  // under a special "hidden" 4th slot (i.e. index 3).
-  // Therefore, we have hard coded the hidden OFT index containing the
-  // directory file as a constant
-  char *fileDescriptor = readDescriptor(FD_DIRECTORY_FILE_DESCRIPTOR_INDEX);
-  // if the directory file is available,
-  if(fileDescriptor[FD_FILE_SIZE] >= 0)
-  {
-
-    char *dataBlock = new char[B];
-
-    // if the directory file is NOT empty
-    if(fileDescriptor[FD_FILE_SIZE] == 0)
-    {
-      // get the first block of the directory file from ldisk
-      io.read_block(fileDescriptor[FD_FIRST_BLOCK], dataBlock);
-
-      // else
-    }
-    else
-    {
-      // fill the data block will null values
-      for(int i; i < B; ++i)
-      {
-        dataBlock[i] = -1;
-      }
-    }
-
-    // load directory data block in the open file table
-    initializeOFT(OFT_DIRECTORY_INDEX, dataBlock,
-                  FD_DIRECTORY_FILE_DESCRIPTOR_INDEX);
-  }
 }
 
 void FileSystem53::OpenFileTable()
 {
   char blankData[B];
   int i;
-  for(i = 0; i < B; ++i)
-  {
-    blankData[i] = 0;
-  }
+  memset(blankData, 0, B);
 
   for(i = 0; i < MAX_OPEN_FILE; ++i)
   {
@@ -74,33 +25,41 @@ int FileSystem53::findOft() {}
 
 void FileSystem53::deallocateOft(int index) {}
 
-// If you accept my create(), you must accept these changes!
-// My create depends on file descriptor sizes being -1 until created.
 void FileSystem53::format()
 {
   char bytemap[B];
-  for(int i = 0; i < 8; ++i)
-  {
-    bytemap[i] = 1;
-  }
-  for(int i = 8; i < B; ++i)
-  {
-    bytemap[i] = 0;
-  }
+  // Fill the first 7 bytes with 1
+  memset(bytemap, 1, 7);
+  // Fill the rest with 0.
+  memset(bytemap + 8, 0, B - 8);
   io.write_block(0, bytemap);
-  // Fill emptyFileDescriptors with all -1. -1 is not used.
   char emptyFileDescriptors[B];
-  for(int i = 0; i < B; ++i)
-  {
-    emptyFileDescriptors[i] = -1;
-  }
+  // Fill emptyFileDescriptors with all -1. -1 is not used.
+  memset(emptyFileDescriptors, -1, B);
   for(int i = 1; i < 7; ++i)
   {
     io.write_block(i, emptyFileDescriptors);
   }
+  for(int i = 0; i < K; ++i)
+  {
+    memcpy(descTable[i], emptyFileDescriptors, B);
+  }
   // Create directory file
   emptyFileDescriptors[0] = 0;
   io.write_block(directoryIndex, emptyFileDescriptors);
+  OpenFileTable();
+  // per TA's instruction,
+  // the directory should always be in the OFT
+  // under a special "hidden" 4th slot (i.e. index 3).
+  // Therefore, we have hard coded the hidden OFT index containing the
+  // directory file as a constant
+  char *fileDescriptor = readDescriptor(FD_DIRECTORY_FILE_DESCRIPTOR_INDEX);
+  char dataBlock[B];
+  memset(dataBlock, -1, B);
+  // load directory data block in the open file table
+  initializeOFT(OFT_DIRECTORY_INDEX, dataBlock,
+                FD_DIRECTORY_FILE_DESCRIPTOR_INDEX);
+  delete[] fileDescriptor;
 }
 
 // variable "no" is expected to be a 0 based file descriptor index
@@ -180,26 +139,18 @@ bool FileSystem53::feof(int index) {}
 int FileSystem53::searchDir(const std::string &fileName,
                             char *directoryDataMemArea)
 {
-
-  int fileDescriptorIndex;
-  bool fileNameMatch;
-
-  char *directoryData = new char[DIRECTORY_DATA_CHUNK_SIZE];
+  char directoryData[DIRECTORY_DATA_CHUNK_SIZE];
   std::string foundFileName;
-  std::string xx;
   // perform a linear search for the file
   lseek(OFT_DIRECTORY_INDEX, 0);
   int directoryDataByteLocation = 0;
-
   int directoryDataSize =
       read(OFT_DIRECTORY_INDEX, directoryData, DIRECTORY_DATA_CHUNK_SIZE);
-
   // if directory file is empty
   if(directoryDataSize == 0)
   {
     return EC_FILE_NOT_FOUND;
   }
-
   while(directoryDataSize != EC_EOF)
   {
     foundFileName.clear();
@@ -208,29 +159,14 @@ int FileSystem53::searchDir(const std::string &fileName,
     {
       foundFileName.insert(i, 1, directoryData[i]);
     }
-    /*
-    std::cout << "Direcotry Data " << directoryData << std::endl;
-    for( int k = 0 ; k < DIRECTORY_DATA_CHUNK_SIZE ; k++ ){
-            std::cout << directoryData[k];
-    }
-    std::cout << std::endl;
-    std::cout << "Found File Name=" << foundFileName << std::endl;
-
-    std::cout << "Position " << static_cast<int>(static_cast<unsigned char>(
-    table.table[3].pos ) ) << std::endl;
-    std::cin >> xx;
-    */
     // if the found file name matches the input file name
     if(foundFileName == fileName)
     {
-
       // copy over directory data to memory area
       for(int i = 0; i < DIRECTORY_DATA_CHUNK_SIZE; ++i)
       {
         directoryDataMemArea[i] = directoryData[i];
       }
-      delete[] directoryData;
-
       // return file descriptor index
       return directoryDataByteLocation;
     }
@@ -238,23 +174,20 @@ int FileSystem53::searchDir(const std::string &fileName,
         read(OFT_DIRECTORY_INDEX, directoryData, DIRECTORY_DATA_CHUNK_SIZE);
     directoryDataByteLocation += DIRECTORY_DATA_CHUNK_SIZE;
   }
-
-  delete[] directoryData;
-
   return EC_FILE_NOT_FOUND;
 }
 
 int FileSystem53::create(const std::string &fileName)
 {
   // verify that no file already exists with the same file name
-  char *directoryData = new char[DIRECTORY_DATA_CHUNK_SIZE];
+  char directoryData[DIRECTORY_DATA_CHUNK_SIZE];
+  memset(directoryData, 0, DIRECTORY_DATA_CHUNK_SIZE);
   int directoryFileByteLocation = searchDir(fileName, directoryData);
 
   // we actually want the an error code of file not found for create()
   // to continue
   if(directoryFileByteLocation != EC_FILE_NOT_FOUND)
   {
-    delete[] directoryData;
     return EC_DUPLICATE_FILE_NAME;
   }
 
@@ -264,12 +197,11 @@ int FileSystem53::create(const std::string &fileName)
   // CORE ASSUMPTION:
   // if the file size slot in a file descriptor index == -1,
   // then we have found a empty file descriptor
-  char *fileDescriptor = new char[DESCR_SIZE];
+  char *fileDescriptor;
   int fileDescriptorIndex = -1;
   for(int i = 0; i < B; ++i)
   {
     fileDescriptor = readDescriptor(i);
-
     // if the file size slot in a file descriptor index == -1,
     // then we have found a empty file descriptor
     if(static_cast<int>(fileDescriptor[FD_FILE_SIZE]) == -1)
@@ -284,7 +216,6 @@ int FileSystem53::create(const std::string &fileName)
   if(fileDescriptorIndex == -1)
   {
     delete[] fileDescriptor;
-    delete[] directoryData;
     return EC_NO_SPACE_IN_DISK;
   }
 
@@ -304,8 +235,6 @@ int FileSystem53::create(const std::string &fileName)
   // CORE ASSUMPTION: directory file is open all the time
   while(directoryData[DIRECTORY_DATA_CHUNK_SIZE - 1] >= 0)
   {
-    delete[] directoryData;
-    directoryData = new char[DIRECTORY_DATA_CHUNK_SIZE];
     resultOfRead =
         read(OFT_DIRECTORY_INDEX, directoryData, DIRECTORY_DATA_CHUNK_SIZE);
 
@@ -315,7 +244,6 @@ int FileSystem53::create(const std::string &fileName)
     // if directory file is full
     if(fileCount == MAX_FILE_NO || resultOfRead == EC_EOF)
     {
-      delete[] directoryData;
       delete[] fileDescriptor;
       return EC_NO_SPACE_IN_DISK;
     }
@@ -338,7 +266,6 @@ int FileSystem53::create(const std::string &fileName)
   // (not including the directory file itself)
   if(fileCount == MAX_FILE_NO)
   {
-    delete[] directoryData;
     delete[] fileDescriptor;
     return EC_NO_SPACE_IN_DISK;
   }
@@ -372,7 +299,6 @@ int FileSystem53::create(const std::string &fileName)
   fileDescriptor[FD_THIRD_BLOCK] = -1;
   writeDescriptor(fileDescriptorIndex, fileDescriptor);
 
-  delete[] directoryData;
   delete[] fileDescriptor;
   return 0; // success
 }
@@ -542,32 +468,24 @@ int FileSystem53::read(int index, char *memArea, int count)
   }
 
   int numberRead = 0;
-  // The index of the file descriptor, not just in this block.
-  const int totalFileIndex = table.table[index].index;
-  // The block which holds the file descriptor
-  const int descriptorIndex = 1 + ((totalFileIndex * 4) / B);
-  char fileDescriptor[B];
-  io.read_block(descriptorIndex, fileDescriptor);
-  // The index of the file descriptor in the loaded block.
-  const int fileIndex = totalFileIndex % (B / 4);
+  char *fileDescriptor = readDescriptor(table.table[index].index);
 
   // The position relative to buf. (180 would be 52 within block 2)
   int relativePos = table.table[index].pos % B;
   // Which block we're in (1 to 3)
   int currentBlock = 1 + (table.table[index].pos / B);
-  int maxRead = (unsigned char)fileDescriptor[(fileIndex * 4)];
+  int maxRead = (unsigned char)fileDescriptor[0];
 
   // If we don't have a block, return 0;
-  if(!fileDescriptor[fileIndex * 4])
+  if(fileDescriptor[0] == -1 || fileDescriptor[0] == 0)
   {
-    return 0;
+    delete[] fileDescriptor;
+    return EC_EOF;
   }
 
   // If the current position == file size before any reading even began for this
-  // call,
-  // and the count > 0, return EC_EOF;
-  if(static_cast<int>(static_cast<unsigned char>(
-         fileDescriptor[(fileIndex * 4)])) == table.table[index].pos)
+  // call, and the count > 0, return EC_EOF;
+  if((unsigned char)(fileDescriptor[0]) == table.table[index].pos)
   {
     return EC_EOF;
   }
@@ -584,20 +502,19 @@ int FileSystem53::read(int index, char *memArea, int count)
     {
       // Write what we have to disk. (In the event it was modified. We COULD add
       // a dirty bit(/byte) to only write if needed.
-      io.write_block(fileDescriptor[(fileIndex * 4) + currentBlock],
-                     table.table[index].buf);
+      io.write_block(fileDescriptor[currentBlock], table.table[index].buf);
       ++currentBlock;
       // If currentBlock is higher than the length of the file, stop.
-      if(currentBlock > (unsigned char)fileDescriptor[fileIndex * 4])
+      if(currentBlock > (unsigned char)fileDescriptor[0])
       {
         ++table.table[index].pos += numberRead;
+        delete[] fileDescriptor;
         return numberRead;
       }
       else
       {
         // Read that block from disk.
-        io.read_block(fileDescriptor[(fileIndex * 4) + currentBlock],
-                      table.table[index].buf);
+        io.read_block(fileDescriptor[currentBlock], table.table[index].buf);
       }
       // Reset relativePos to be B places back.
       relativePos -= B;
@@ -606,6 +523,7 @@ int FileSystem53::read(int index, char *memArea, int count)
   }
   // Once we're done, set the full position to be count higher.
   table.table[index].pos += numberRead;
+  delete[] fileDescriptor;
   return numberRead;
 }
 
@@ -630,14 +548,7 @@ int FileSystem53::write(int index, char value, int count)
   {
     return -2;
   }
-  // The index of the file descriptor, not just in this block.
-  const int totalFileIndex = table.table[index].index;
-  // The block which holds the file descriptor
-  const int descriptorIndex = 1 + ((totalFileIndex * 4) / B);
-  char fileDescriptor[B];
-  io.read_block(descriptorIndex, fileDescriptor);
-  // The index of the file descriptor in the loaded block.
-  const int fileIndex = totalFileIndex % (B / 4);
+  char *fileDescriptor = readDescriptor(table.table[index].index);
 
   // The position relative to buf. (180 would be 52 within block 2)
   int relativePos = table.table[index].pos % B;
@@ -645,10 +556,10 @@ int FileSystem53::write(int index, char value, int count)
   int currentBlock = 1 + (table.table[index].pos / B);
 
   // If we don't have a block, get one before writing
-  if(!fileDescriptor[fileIndex * 4])
+  if(!fileDescriptor[0])
   {
-    fileDescriptor[(fileIndex * 4) + 1] = addBlock();
-    io.write_block(descriptorIndex, fileDescriptor);
+    fileDescriptor[1] = addBlock();
+    writeDescriptor(table.table[index].index, fileDescriptor);
   }
 
   for(int i = 0; i < count; ++i, ++relativePos)
@@ -657,21 +568,19 @@ int FileSystem53::write(int index, char value, int count)
     if(relativePos >= B)
     {
       // Write what we have to disk.
-      io.write_block(fileDescriptor[(fileIndex * 4) + currentBlock],
-                     table.table[index].buf);
+      io.write_block(fileDescriptor[currentBlock], table.table[index].buf);
       ++currentBlock;
       // If currentBlock is higher than the length of the file, create a block.
-      if(currentBlock * B > (unsigned char)fileDescriptor[fileIndex * 4])
+      if(currentBlock * B > (unsigned char)fileDescriptor[0])
       {
-        fileDescriptor[(fileIndex * 4) + currentBlock] = addBlock();
-        io.write_block(descriptorIndex, fileDescriptor);
+        fileDescriptor[currentBlock] = addBlock();
+        writeDescriptor(table.table[index].index, fileDescriptor);
         memset(table.table[index].buf, 0, B);
       }
       else
       {
         // Read that block from disk.
-        io.read_block(fileDescriptor[(fileIndex * 4) + currentBlock],
-                      table.table[index].buf);
+        io.read_block(fileDescriptor[+currentBlock], table.table[index].buf);
       }
       // Reset relativePos to be B places back.
       relativePos -= B;
@@ -680,10 +589,10 @@ int FileSystem53::write(int index, char value, int count)
   }
   // Once we're done, set the full position to be count higher.
   table.table[index].pos += count;
-  if(table.table[index].pos > (unsigned char)fileDescriptor[fileIndex * 4])
+  if(table.table[index].pos > (unsigned char)fileDescriptor[0])
   {
-    fileDescriptor[fileIndex * 4] = table.table[index].pos;
-    io.write_block(descriptorIndex, fileDescriptor);
+    fileDescriptor[0] = table.table[index].pos;
+    writeDescriptor(table.table[index].index, fileDescriptor);
   }
   return 1;
 }
@@ -896,7 +805,16 @@ void FileSystem53::directory()
   }
 }
 
-void FileSystem53::restore(const std::string &name) { io.load(name); }
+void FileSystem53::restore(const std::string &name)
+{
+  io.load(name);
+  // copy descriptor table from ldisk to descTable
+  for(int i = START_INDEX_BLOCK_DESC_TABLE; i <= END_INDEX_BLOCK_DESC_TABLE;
+      i++)
+  {
+    io.read_block(i, descTable[i]);
+  }
+}
 
 void FileSystem53::save(const std::string &name) { io.save(name); }
 
@@ -939,7 +857,6 @@ void FileSystem53::initializeOFT(int oftIndex, char *dataBlock,
 {
   table.table[oftIndex].index = fileDescriptorIndex;
   table.table[oftIndex].pos = 0;
-  mempcpy(table.table[oftIndex].buf, dataBlock, B);
   table.open[oftIndex] = true;
 }
 
