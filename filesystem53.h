@@ -70,11 +70,14 @@ class FileSystem53
   // ERROR CODES
   static const int EC_FILE_NOT_OPEN = -1;
   static const int EC_FILE_NOT_FOUND = -1;
-  static const int EC_NEGATIVE_SEEK_POSITION = -100;
+  static const int EC_NO_SPACE_IN_DISK = -1;
+  static const int EC_DELETE_FAILURE = -1;
   static const int EC_OFT_FULL = -2;
   static const int EC_EOF = -2;
+  static const int EC_DUPLICATE_FILE_NAME = -2;
+  static const int EC_NEGATIVE_SEEK_POSITION = -100;
   static const int EC_FILE_CURRENTLY_IN_USE = -200;
-  static const int EC_DELETE_FAILURE = -1;
+
 
   // FILE DESCRIPTOR CONSTANTS
   static const int FD_DIRECTORY_FILE_DESCRIPTOR_INDEX = 0;
@@ -94,7 +97,7 @@ public:
   void format();
   char *readDescriptor(int no);
   void clearDescriptor(int no);
-  void writeDescriptor(int no, const std::string &desc);
+  void writeDescriptor(int no, const char *desc);
   int findEmptyDescriptor();
   int findEmptyBlock();
   int fgetc(int index);
@@ -121,13 +124,15 @@ public:
   int destroy(const std::string &fileName);
   int searchOFT(int fileDescriptorIndex);
   void writeDirectory(const std::string &fileName,const char *directoryData);
-  
+
+  // REMOVE old_create() once create is working
+  int old_create(const std::string &fileName);
+
   // TESTS, REMOVE BEFORE SUBMITTING.
   FRIEND_TEST(FileSystem53, NoFilesOpenAtStart);
   FRIEND_TEST(FileSystem53, CanOpenFile);
   FRIEND_TEST(FileSystem53, CanOpenAllThreeFiles);
   // REMOVE THIS, IT IS FOR TESTING.
-  void lseek_broken(int index, int pos);  
-  
+  void lseek_broken(int index, int pos); 
 };
 
