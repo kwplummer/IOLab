@@ -49,7 +49,7 @@ class FileSystem53
   char descTable[K][B];
 
   static const int OFT_DIRECTORY_INDEX = 3;
-  static const int MAX_FILE_SIZE = B*3;
+  static const int MAX_FILE_SIZE = B * 3;
   static const int DIRECTORY_DATA_CHUNK_SIZE = 11;
   static const int BYTEMAP_BLOCK_INDEX = 0;
 
@@ -77,7 +77,6 @@ class FileSystem53
   static const int EC_DUPLICATE_FILE_NAME = -2;
   static const int EC_NEGATIVE_SEEK_POSITION = -100;
   static const int EC_FILE_CURRENTLY_IN_USE = -200;
-
 
   // FILE DESCRIPTOR CONSTANTS
   static const int FD_DIRECTORY_FILE_DESCRIPTOR_INDEX = 0;
@@ -120,10 +119,10 @@ public:
   int addBlock();
 
   // Ben's personal additions
-  void initializeOFT( int oftIndex, char *dataBlock , char fileDescriptorIndex );
+  void initializeOFT(int oftIndex, char *dataBlock, char fileDescriptorIndex);
   int destroy(const std::string &fileName);
   int searchOFT(int fileDescriptorIndex);
-  void writeDirectory(const std::string &fileName,const char *directoryData);
+  void writeDirectory(const std::string &fileName, const char *directoryData);
 
   // REMOVE old_create() once create is working
   int old_create(const std::string &fileName);
@@ -133,6 +132,5 @@ public:
   FRIEND_TEST(FileSystem53, CanOpenFile);
   FRIEND_TEST(FileSystem53, CanOpenAllThreeFiles);
   // REMOVE THIS, IT IS FOR TESTING.
-  void lseek_broken(int index, int pos); 
+  void lseek_broken(int index, int pos);
 };
-
