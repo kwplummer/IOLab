@@ -32,7 +32,9 @@ void FileSystem53::format()
   memset(bytemap, 1, 7);
   // Fill the rest with 0.
   memset(bytemap + 8, 0, B - 8);
+  // Write it both to disk and to descTable
   io.write_block(0, bytemap);
+  memcpy(descTable[0], bytemap, B);
   char emptyFileDescriptors[B];
   // Fill emptyFileDescriptors with all -1. -1 is not used.
   memset(emptyFileDescriptors, -1, B);
@@ -40,7 +42,7 @@ void FileSystem53::format()
   {
     io.write_block(i, emptyFileDescriptors);
   }
-  for(int i = 0; i < K; ++i)
+  for(int i = 1; i < K - 1; ++i)
   {
     memcpy(descTable[i], emptyFileDescriptors, B);
   }
@@ -291,8 +293,6 @@ int FileSystem53::create(const std::string &fileName)
 
   // make and allocate a file descriptor for new file
   // initialize the file descriptor to 0,-1,-1,-1
-  delete[] fileDescriptor;
-  fileDescriptor = new char[DESCR_SIZE];
   fileDescriptor[FD_FILE_SIZE] = 0;
   fileDescriptor[FD_FIRST_BLOCK] = -1;
   fileDescriptor[FD_SECOND_BLOCK] = -1;
@@ -476,11 +476,11 @@ int FileSystem53::read(int index, char *memArea, int count)
   int currentBlock = 1 + (table.table[index].pos / B);
   int maxRead = (unsigned char)fileDescriptor[0];
 
-  // If we don't have a block, return 0;
+  // If we don't have a block, return 0
   if(fileDescriptor[0] == -1 || fileDescriptor[0] == 0)
   {
     delete[] fileDescriptor;
-    return EC_EOF;
+    return 0;
   }
 
   // If the current position == file size before any reading even began for this
@@ -556,8 +556,9 @@ int FileSystem53::write(int index, char value, int count)
   int currentBlock = 1 + (table.table[index].pos / B);
 
   // If we don't have a block, get one before writing
-  if(!fileDescriptor[0])
+  if(fileDescriptor[0] == 0 || fileDescriptor[0] == -1)
   {
+    fileDescriptor[0] = count;
     fileDescriptor[1] = addBlock();
     writeDescriptor(table.table[index].index, fileDescriptor);
   }
@@ -857,6 +858,7 @@ void FileSystem53::initializeOFT(int oftIndex, char *dataBlock,
 {
   table.table[oftIndex].index = fileDescriptorIndex;
   table.table[oftIndex].pos = 0;
+  mempcpy(table.table[oftIndex].buf, dataBlock, B);
   table.open[oftIndex] = true;
 }
 
