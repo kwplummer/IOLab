@@ -623,6 +623,7 @@ int FileSystem53::write(int index, char value, int count)
     fileDescriptor[0] = table.table[index].pos;
     writeDescriptor(table.table[index].index, fileDescriptor);
   }
+  delete []fileDescriptor;
   return 1;
 }
 
