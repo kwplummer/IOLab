@@ -10,10 +10,9 @@ FileSystem53::FileSystem53() : directoryIndex(7), LDISK_FILE_NAME("ldisk.txt")
 void FileSystem53::OpenFileTable()
 {
   char blankData[B];
-  int i;
   memset(blankData, 0, B);
 
-  for(i = 0; i < MAX_OPEN_FILE; ++i)
+  for(int i = 0; i < MAX_OPEN_FILE; ++i)
   {
     table.table[i].pos = 0;
     table.table[i].index = -1;
@@ -61,6 +60,15 @@ void FileSystem53::format()
   // load directory data block in the open file table
   initializeOFT(OFT_DIRECTORY_INDEX, dataBlock,
                 FD_DIRECTORY_FILE_DESCRIPTOR_INDEX);
+
+  // update the file descriptor of the directory
+  fileDescriptor[FD_FILE_SIZE] = 0;
+  fileDescriptor[FD_FIRST_BLOCK] = -1;
+  fileDescriptor[FD_SECOND_BLOCK] = -1;
+  fileDescriptor[FD_THIRD_BLOCK] = -1;
+
+  writeDescriptor(FD_DIRECTORY_FILE_DESCRIPTOR_INDEX, fileDescriptor);
+
   delete[] fileDescriptor;
 }
 
@@ -276,7 +284,7 @@ int FileSystem53::create(const std::string &fileName)
 
   // write the file name in the directory along with the
   // file descriptor index found earlier
-  int byteLocationToWrite = (fileCount + 1) * DIRECTORY_DATA_CHUNK_SIZE;
+  int byteLocationToWrite = (fileCount) * DIRECTORY_DATA_CHUNK_SIZE;
   lseek(OFT_DIRECTORY_INDEX, byteLocationToWrite);
   int j = 0;
   for(j = 0; j < MAX_FILE_NAME_LEN; ++j)
@@ -421,36 +429,40 @@ int FileSystem53::open(const std::string &fileName)
   // use file descriptor index to grab the file descriptor from the descTtable
   char *directoryDescriptor = readDescriptor(directoryIndex);
   int byteCount = 0;
-
-  // Go block by block from the directory.
-  for(int i = 1;
-      i <= FD_THIRD_BLOCK && byteCount < directoryDescriptor[FD_FILE_SIZE]; ++i)
+  char nameBuf[B];
+  int fileLocation = searchDir(fileName, nameBuf);
+  if(fileLocation == EC_FILE_NOT_FOUND)
   {
-    char directoryBlock[B];
-    io.read_block(directoryDescriptor[i], directoryBlock);
-    for(int j = 0; j < B; j += MAX_FILE_NAME_LEN + 1)
+    return EC_FILE_NOT_OPEN;
+  }
+
+  // grab the file descriptor from descTable using readDescriptor with
+  // fileLocation
+  char *fileDescriptor = readDescriptor(fileLocation);
+
+  // using the file descriptor, check if it has any blocks allocated to it
+  for(int k = 0; k < 3; ++k)
+  {
+    if(!table.open[k])
     {
-      if(strncmp(directoryBlock + j, fileName.c_str(), MAX_FILE_NAME_LEN) == 0)
+      table.table[k].pos = 0;
+      table.table[k].index = fileLocation;
+      table.open[k] = true;
+      if(fileDescriptor[0] == 0)
       {
-        for(int k = 0; k < 3; ++k)
-        {
-          if(!table.open[k])
-          {
-            memset(table.table[k].buf, 0, B);
-            table.table[k].pos = 0;
-            table.table[k].index = directoryBlock[j + MAX_FILE_NAME_LEN];
-            table.open[k] = true;
-            delete[] directoryDescriptor;
-            return k;
-          }
-        }
-        delete[] directoryDescriptor;
-        return EC_OFT_FULL;
+        memset(table.table[k].buf, 0, B);
       }
-      ++byteCount;
+      else
+      {
+        io.read_block(fileDescriptor[1], table.table[k].buf);
+      }
+      delete[] directoryDescriptor;
+      delete[] fileDescriptor;
+      return k;
     }
   }
   delete[] directoryDescriptor;
+  delete[] fileDescriptor;
   return EC_FILE_NOT_OPEN;
 }
 
@@ -487,6 +499,7 @@ int FileSystem53::read(int index, char *memArea, int count)
   // call, and the count > 0, return EC_EOF;
   if((unsigned char)(fileDescriptor[0]) == table.table[index].pos)
   {
+    delete[] fileDescriptor;
     return EC_EOF;
   }
 
@@ -671,6 +684,7 @@ int FileSystem53::close(int index)
   return 0;
 }
 
+// TODO: Why is this here?
 int FileSystem53::destroy(const std::string &fileName) { deleteFile(fileName); }
 
 /* Delete file function:
