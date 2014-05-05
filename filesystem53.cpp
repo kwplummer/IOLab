@@ -69,8 +69,9 @@ void FileSystem53::format()
 
   writeDescriptor(FD_DIRECTORY_FILE_DESCRIPTOR_INDEX, fileDescriptor);
   // Give the directory file a name
-  write(OFT_DIRECTORY_INDEX, '_', 1);
-  write(OFT_DIRECTORY_INDEX, -1, MAX_FILE_NAME_LEN);
+  lseek(OFT_DIRECTORY_INDEX, 0);
+  write(OFT_DIRECTORY_INDEX, '_', MAX_FILE_NAME_LEN);
+  write(OFT_DIRECTORY_INDEX, 0, 1);
   delete[] fileDescriptor;
 }
 
@@ -246,9 +247,10 @@ int FileSystem53::create(const std::string &fileName)
   // can be stored
   // CORE ASSUMPTION: directory file is open all the time
 
-  //TODO: This loop ends after reading the -1 from "_-1-1-1-1-1-1-1-1-1...".
-  //It should keep going, as it's making every file created take up spot 11.
-  //create("file1"), create("file2"), create("file3") all take up the same spot.
+  // TODO: This loop ends after reading the -1 from "_-1-1-1-1-1-1-1-1-1...".
+  // It should keep going, as it's making every file created take up spot 11.
+  // create("file1"), create("file2"), create("file3") all take up the same
+  // spot.
   while(directoryData[DIRECTORY_DATA_CHUNK_SIZE - 1] >= 0)
   {
     resultOfRead =
@@ -258,7 +260,7 @@ int FileSystem53::create(const std::string &fileName)
     // (not including the directory file itself)
     // or
     // if directory file is full
-    if(fileCount == MAX_FILE_NO || resultOfRead == EC_EOF)
+    if(fileCount == MAX_FILE_NO)
     {
       delete[] fileDescriptor;
       return EC_NO_SPACE_IN_DISK;
@@ -267,7 +269,7 @@ int FileSystem53::create(const std::string &fileName)
     ++fileCount;
 
     // directory file is completely empty
-    if(resultOfRead == 0 && fileCount == 1)
+    if((resultOfRead == 0 && fileCount == 1) || resultOfRead == EC_EOF)
     {
       break;
     }
@@ -276,7 +278,7 @@ int FileSystem53::create(const std::string &fileName)
   // if we reached this point, out file count is over by 1 since it is counting
   // the empty directory data slot
   // thus, we correct it
-  //--fileCount;
+  --fileCount;
 
   // if max number of files allowed is already reached
   // (not including the directory file itself)
