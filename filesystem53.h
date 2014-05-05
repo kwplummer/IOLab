@@ -1,32 +1,3 @@
-/*
- * ldisk[0][] = bytemap, [1..6][] is descriptors. [7..] Data
- *
- * --Directory file--
- * Empty, as nothing's created.
- * Bytemap[0..6] is 1.
- *
- * --Creating a file named f1.txt--
- * Empty, title is first content of Directory file.
- * Find descriptor index (1, right after directory's 0), it's descriptor is
- *this:
- *
- * --Descriptor--
- * 0 (size) -1 -1 -1 (blocks)
- * We now update directory, as something's created.
- * Now there's something in directory, it needs a block.
- * Reserve first data block, block 7. Mark bytemap[7] to true. (1)
- *
- * --We write "Hello", char[5] to f1.txt--
- * We allocate block 8. Mark bytemap[8] to true (1)
- *
- * Kyle: Read(), Write()
- * Sophia: Create() Destroy()
- * Ben: Seek() Directory()
- * Holly: Open(), Close()
- *
- * Meet at Wednesday 12:30
-*/
-
 #include <string>
 #include "iomanager.h"
 // REMOVE THIS INCLUDE:
@@ -90,21 +61,12 @@ class FileSystem53
 
 public:
   FileSystem53();
-  void OpenFileTable();
-  int findOft();
-  void deallocateOft(int index);
+  void openFileTable();
   void format();
   char *readDescriptor(int no);
-  void clearDescriptor(int no);
   void writeDescriptor(int no, const char *desc);
-  int findEmptyDescriptor();
-  int findEmptyBlock();
-  int fgetc(int index);
-  int fputc(int c, int index);
-  bool feof(int index);
   int searchDir(const std::string &fileName, char *directoryDataMemArea);
   int create(const std::string &fileName);
-  int openDesc(int desc_no);
   int open(const std::string &fileName);
   int read(int index, char *memArea, int count);
   int write(int index, char value, int count);
@@ -114,23 +76,14 @@ public:
   void directory();
   void restore(const std::string &name);
   void save(const std::string &name);
-  void diskDump(int start, int size);
-  // Personal additions:
   int addBlock();
-
-  // Ben's personal additions
   void initializeOFT(int oftIndex, char *dataBlock, char fileDescriptorIndex);
   int destroy(const std::string &fileName);
   int searchOFT(int fileDescriptorIndex);
   void writeDirectory(const std::string &fileName, const char *directoryData);
 
-  // REMOVE old_create() once create is working
-  int old_create(const std::string &fileName);
-
   // TESTS, REMOVE BEFORE SUBMITTING.
   FRIEND_TEST(FileSystem53, NoFilesOpenAtStart);
   FRIEND_TEST(FileSystem53, CanOpenFile);
   FRIEND_TEST(FileSystem53, CanOpenAllThreeFiles);
-  // REMOVE THIS, IT IS FOR TESTING.
-  void lseek_broken(int index, int pos);
 };
