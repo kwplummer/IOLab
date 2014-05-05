@@ -436,21 +436,18 @@ TEST(FileSystem53, CanReadMoreThanOneBlockOfCharToOpenFile)
 TEST(FileSystem53, CanReadMoreThanOneBlockOfCharToOpenFileIfAllThreeAreOpen)
 {
   FileSystem53 fs;
-  fs.create("Test.txt");
-  fs.open("Test.txt");
-  fs.create("Test2.txt");
-  fs.open("Test2.txt");
-  fs.create("Test3.txt");
-  fs.open("Test3.txt");
+  ASSERT_EQ(0, fs.create("Test.txt"));
+  ASSERT_EQ(0, fs.open("Test.txt"));
+  ASSERT_EQ(0, fs.create("Test2.txt"));
+  ASSERT_EQ(1, fs.open("Test2.txt"));
+  ASSERT_EQ(0, fs.create("Test3.txt"));
+  ASSERT_EQ(2, fs.open("Test3.txt"));
   ASSERT_EQ(1, fs.write(0, 'f', 66));
   ASSERT_EQ(1, fs.write(1, 'j', 66));
   ASSERT_EQ(1, fs.write(2, 'm', 66));
   char checkMe[67] = {'\0'};
   char buf[256] = {'\0'};
-  for(int i = 0; i < 66; ++i)
-  {
-    checkMe[i] = 'f';
-  }
+  memset(checkMe, 'f', 66);
   fs.lseek(0, 0);
   ASSERT_EQ(66, fs.read(0, buf, 66));
   ASSERT_STREQ(checkMe, buf);

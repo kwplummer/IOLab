@@ -68,7 +68,9 @@ void FileSystem53::format()
   fileDescriptor[FD_THIRD_BLOCK] = -1;
 
   writeDescriptor(FD_DIRECTORY_FILE_DESCRIPTOR_INDEX, fileDescriptor);
-
+  // Give the directory file a name
+  write(OFT_DIRECTORY_INDEX, '_', 1);
+  write(OFT_DIRECTORY_INDEX, -1, MAX_FILE_NAME_LEN);
   delete[] fileDescriptor;
 }
 
@@ -243,6 +245,10 @@ int FileSystem53::create(const std::string &fileName)
   // 3) read() will return an end-of-file if there is simply no more data that
   // can be stored
   // CORE ASSUMPTION: directory file is open all the time
+
+  //TODO: This loop ends after reading the -1 from "_-1-1-1-1-1-1-1-1-1...".
+  //It should keep going, as it's making every file created take up spot 11.
+  //create("file1"), create("file2"), create("file3") all take up the same spot.
   while(directoryData[DIRECTORY_DATA_CHUNK_SIZE - 1] >= 0)
   {
     resultOfRead =
@@ -270,7 +276,7 @@ int FileSystem53::create(const std::string &fileName)
   // if we reached this point, out file count is over by 1 since it is counting
   // the empty directory data slot
   // thus, we correct it
-  --fileCount;
+  //--fileCount;
 
   // if max number of files allowed is already reached
   // (not including the directory file itself)
@@ -289,7 +295,14 @@ int FileSystem53::create(const std::string &fileName)
   int j = 0;
   for(j = 0; j < MAX_FILE_NAME_LEN; ++j)
   {
-    write(OFT_DIRECTORY_INDEX, fileName[j], 1);
+    if(j < fileName.length())
+    {
+      write(OFT_DIRECTORY_INDEX, fileName[j], 1);
+    }
+    else
+    {
+      write(OFT_DIRECTORY_INDEX, -1, 1);
+    }
   }
   write(OFT_DIRECTORY_INDEX, fileDescriptorIndex, 1);
 
@@ -448,7 +461,7 @@ int FileSystem53::open(const std::string &fileName)
       table.table[k].pos = 0;
       table.table[k].index = fileLocation;
       table.open[k] = true;
-      if(fileDescriptor[0] == 0)
+      if(fileDescriptor[0] == 0 || fileDescriptor[0] == -1)
       {
         memset(table.table[k].buf, 0, B);
       }
@@ -684,7 +697,6 @@ int FileSystem53::close(int index)
   return 0;
 }
 
-// TODO: Why is this here?
 int FileSystem53::destroy(const std::string &fileName) { deleteFile(fileName); }
 
 /* Delete file function:
