@@ -48,6 +48,7 @@ class FileSystem53
   static const int EC_DUPLICATE_FILE_NAME = -2;
   static const int EC_NEGATIVE_SEEK_POSITION = -100;
   static const int EC_FILE_CURRENTLY_IN_USE = -200;
+  static const int EC_FILE_NAME_LENGTH_EXCEEDED = -300;
 
   // FILE DESCRIPTOR CONSTANTS
   static const int FD_DIRECTORY_FILE_DESCRIPTOR_INDEX = 0;
@@ -66,6 +67,7 @@ public:
   char *readDescriptor(int no);
   void writeDescriptor(int no, const char *desc);
   int searchDir(const std::string &fileName, char *directoryDataMemArea);
+  std::string getFileName(const int oftIndex);
   int create(const std::string &fileName);
   int open(const std::string &fileName);
   int read(int index, char *memArea, int count);
@@ -86,4 +88,6 @@ public:
   FRIEND_TEST(FileSystem53, NoFilesOpenAtStart);
   FRIEND_TEST(FileSystem53, CanOpenFile);
   FRIEND_TEST(FileSystem53, CanOpenAllThreeFiles);
+
+  void listDesc();
 };

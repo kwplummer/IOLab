@@ -1,1 +1,2 @@
-This is the repo for the first lab of ICS53.
+This is Part 2 of Project 1.
+

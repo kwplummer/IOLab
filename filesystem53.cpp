@@ -36,7 +36,7 @@ void FileSystem53::format()
   {
     io.write_block(i, emptyFileDescriptors);
   }
-  for(int i = 1; i < K - 1; ++i)
+  for(int i = 1; i < K; ++i)
   {
     memcpy(descTable[i], emptyFileDescriptors, B);
   }
@@ -159,7 +159,7 @@ int FileSystem53::searchDir(const std::string &fileName,
       {
         directoryDataMemArea[i] = directoryData[i];
       }
-      // return file descriptor index
+      // return index in the directory file
       return directoryDataByteLocation;
     }
     directoryDataSize =
@@ -169,8 +169,62 @@ int FileSystem53::searchDir(const std::string &fileName,
   return EC_FILE_NOT_FOUND;
 }
 
+std::string FileSystem53::getFileName(const int oftIndex)
+{
+  // check first if oftIndex is even open
+  if(!(oftIndex < MAX_OPEN_FILE && table.open[oftIndex]))
+  {
+    return "";
+  }
+
+  // get the file descriptor index from the open file table
+  int fileDescriptorIndex = table.table[oftIndex].index;
+
+  // linear search through the directory to find a matching file directory index
+  // then return the associated file name
+
+  // FILTER STUFF OUT
+  char directoryData[DIRECTORY_DATA_CHUNK_SIZE];
+  std::string foundFileName;
+  // perform a linear search for the file
+  lseek(OFT_DIRECTORY_INDEX, 0);
+
+  int directoryDataSize =
+      read(OFT_DIRECTORY_INDEX, directoryData, DIRECTORY_DATA_CHUNK_SIZE);
+  // if directory file is empty
+  if(directoryDataSize == 0)
+  {
+    return "";
+  }
+  while(directoryDataSize != EC_EOF)
+  {
+    foundFileName.clear();
+    for(int i = 0; i < DIRECTORY_DATA_CHUNK_SIZE - 1 && directoryData[i] != -1;
+        ++i)
+    {
+      foundFileName.insert(i, 1, directoryData[i]);
+    }
+    // if the file descriptor index matches the file descriptor index in OFT
+    if(((unsigned char)directoryData[DIRECTORY_DATA_CHUNK_SIZE - 1]) ==
+       fileDescriptorIndex)
+    {
+
+      return foundFileName;
+    }
+    directoryDataSize =
+        read(OFT_DIRECTORY_INDEX, directoryData, DIRECTORY_DATA_CHUNK_SIZE);
+  }
+  return "";
+}
+
 int FileSystem53::create(const std::string &fileName)
 {
+  // if the fileName is more than 10 chars long
+  if(fileName.length() > MAX_FILE_NAME_LEN)
+  {
+    return EC_FILE_NAME_LENGTH_EXCEEDED;
+  }
+
   // verify that no file already exists with the same file name
   char directoryData[DIRECTORY_DATA_CHUNK_SIZE];
   memset(directoryData, 0, DIRECTORY_DATA_CHUNK_SIZE);
@@ -320,16 +374,19 @@ int FileSystem53::open(const std::string &fileName)
   {
     if(!table.open[k])
     {
-      table.table[k].pos = 0;
-      table.table[k].index = fileLocation;
-      table.open[k] = true;
-      if(fileDescriptor[0] == 0 || fileDescriptor[0] == -1)
+      if(nameBuf[DIRECTORY_DATA_CHUNK_SIZE - 1] != table.table[k].index)
       {
-        memset(table.table[k].buf, 0, B);
-      }
-      else
-      {
-        io.read_block(fileDescriptor[1], table.table[k].buf);
+        table.table[k].pos = 0;
+        table.table[k].index = nameBuf[DIRECTORY_DATA_CHUNK_SIZE - 1];
+        table.open[k] = true;
+        if(fileDescriptor[0] == 0 || fileDescriptor[0] == -1)
+        {
+          memset(table.table[k].buf, 0, B);
+        }
+        else
+        {
+          io.read_block(fileDescriptor[1], table.table[k].buf);
+        }
       }
       delete[] directoryDescriptor;
       delete[] fileDescriptor;
@@ -584,6 +641,7 @@ int FileSystem53::deleteFile(const std::string &fileName)
   // if file NOT found
   if(directoryFileByteLocation == EC_FILE_NOT_FOUND)
   {
+    delete[] directoryData;
     return EC_DELETE_FAILURE;
   }
 
@@ -597,6 +655,8 @@ int FileSystem53::deleteFile(const std::string &fileName)
    */
   if(searchOFT(fileDescriptorIndex) != EC_FILE_NOT_OPEN)
   {
+    delete[] directoryData;
+    delete[] fileDescriptor;
     return EC_DELETE_FAILURE;
   }
 
@@ -627,6 +687,8 @@ int FileSystem53::deleteFile(const std::string &fileName)
   // remove any blocks from the file descriptor of the directory
   // if necessary
 
+  delete[] directoryData;
+  delete[] fileDescriptor;
   return 0; // success
 }
 
@@ -639,7 +701,7 @@ void FileSystem53::directory()
   // reset seek position to 0
   lseek(OFT_DIRECTORY_INDEX, 0);
 
-  char *directory = new char[B];
+  char directory[B];
 
   // read all the contents of directory
   fileSize = read(OFT_DIRECTORY_INDEX, directory, MAX_FILE_SIZE);
@@ -659,7 +721,8 @@ void FileSystem53::directory()
   else
   {
     k = 0; // file name string counter
-    for(i = 0; i < fileSize; i++)
+    bool notFirstFile = false;
+    for(i = 11; i < fileSize; i++)
     {
 
       // if this is a file descriptor index byte
@@ -667,32 +730,42 @@ void FileSystem53::directory()
       {
         // File name display has been completed.
         // Next, get the file size
-        fileDescriptorIndex =
-            static_cast<int>(static_cast<unsigned char>(directory[i]));
-        fileDescriptor = readDescriptor(fileDescriptorIndex);
+        fileDescriptorIndex = static_cast<int>((directory[i]));
 
-        std::cout << " " << static_cast<int>(static_cast<unsigned char>(
-                                fileDescriptor[FD_FILE_SIZE])) << " bytes";
-
-        // if this is NOT the last file to be displayed
-        if(i + 1 < fileSize)
+        if(fileDescriptorIndex != -1)
         {
-          // display comma
-          std::cout << ", ";
+          fileDescriptor = readDescriptor(fileDescriptorIndex);
+          std::cout << " " << static_cast<int>(static_cast<unsigned char>(
+                                  fileDescriptor[FD_FILE_SIZE])) << " bytes";
+          delete[] fileDescriptor;
         }
         k = 0;
-        delete[] fileDescriptor;
       }
       else
       {
         if(directory[i] > 0)
         {
+          // if this is NOT the last file to be displayed
+          if(k == 0)
+          {
+            if(notFirstFile)
+            {
+              // display comma
+              std::cout << ", ";
+            }
+            else
+            {
+              notFirstFile = true;
+            }
+          }
           std::cout << directory[i];
         }
         k++;
       }
     }
   }
+
+  std::cout << "\n";
 }
 
 void FileSystem53::restore(const std::string &name)
@@ -760,4 +833,25 @@ FileSystem53::OFT::OFT()
   open[1] = false;
   open[2] = false;
   open[3] = false;
+}
+
+void FileSystem53::listDesc()
+{
+  for(int i = 0; i < K; ++i)
+  {
+    if(i == 0)
+    {
+      std::cout << "Bytemap \n";
+    }
+    else
+    {
+      std::cout << "Desc table[" << i << "] \n";
+    }
+
+    for(int j = 0; j < B; ++j)
+    {
+      std::cout << (int)descTable[i][j] << ",";
+    }
+    std::cout << "\n\n";
+  }
 }
