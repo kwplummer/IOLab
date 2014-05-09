@@ -1,3 +1,5 @@
+/*
+ *
 //============================================================================
 // Description : ICS 53 Part 2
 //============================================================================
@@ -132,3 +134,11 @@ int main()
 }
 
 string booleanToString(bool result) { return (result ? "PASS" : "FAIL"); }
+*/
+
+#include "PresentationShell.h"
+int main()
+{
+  PresentationShell sh;
+  sh.runPresentationShell();
+}

@@ -7,7 +7,7 @@ void IOManager::read_block(int i, char *p) const { mempcpy(p, ldisk[i], B); }
 
 void IOManager::write_block(int i, char *p) { mempcpy(ldisk[i], p, B); }
 
-void IOManager::load(const std::string &name)
+bool IOManager::load(const std::string &name)
 {
   std::ifstream in(name.c_str());
   if(in.fail())
@@ -16,6 +16,7 @@ void IOManager::load(const std::string &name)
     // If there is simply no ldisk file,
     // it should not be seen as an error
     // std::cout << "Is not open.\n";
+    return false;
   }
   else
   {
@@ -24,6 +25,7 @@ void IOManager::load(const std::string &name)
       in.getline(ldisk[i], B);
     }
     in.close();
+    return true;
   }
 }
 

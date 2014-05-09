@@ -10,7 +10,7 @@ class IOManager
 public:
   void read_block(int i, char *p) const;
   void write_block(int i, char *p);
-  void load(const std::string &name);
+  bool load(const std::string &name);
   void save(const std::string &name) const;
 };
 

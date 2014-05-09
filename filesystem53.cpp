@@ -352,7 +352,7 @@ int FileSystem53::create(const std::string &fileName)
   delete[] fileDescriptor;
   return 0; // success
 }
-
+//TODO: If we open an already opened file, reset position to 0
 int FileSystem53::open(const std::string &fileName)
 {
   // Get the file descriptor for the directory
@@ -587,7 +587,7 @@ int FileSystem53::lseek(int index, int pos)
                   table.table[index].buf);
   }
   delete[] fileDescriptor;
-  return 0;
+  return pos;
 }
 
 int FileSystem53::close(int index)
@@ -768,18 +768,25 @@ void FileSystem53::directory()
   std::cout << "\n";
 }
 
-void FileSystem53::restore(const std::string &name)
+int FileSystem53::restore()
 {
-  io.load(name);
-  // copy descriptor table from ldisk to descTable
-  for(int i = START_INDEX_BLOCK_DESC_TABLE; i <= END_INDEX_BLOCK_DESC_TABLE;
-      i++)
+  if(io.load(LDISK_FILE_NAME))
   {
-    io.read_block(i, descTable[i]);
+    // copy descriptor table from ldisk to descTable
+    for(int i = START_INDEX_BLOCK_DESC_TABLE; i <= END_INDEX_BLOCK_DESC_TABLE;
+        i++)
+    {
+      io.read_block(i, descTable[i]);
+    }
+    return 0;
+  }
+  else
+  {
+    return 1;
   }
 }
 
-void FileSystem53::save(const std::string &name) { io.save(name); }
+void FileSystem53::save() { io.save(LDISK_FILE_NAME); }
 
 /*
  * addBlock() marks the first available

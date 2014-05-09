@@ -76,8 +76,8 @@ public:
   int close(int index);
   int deleteFile(const std::string &fileName);
   void directory();
-  void restore(const std::string &name);
-  void save(const std::string &name);
+  int restore();
+  void save();
   int addBlock();
   void initializeOFT(int oftIndex, char *dataBlock, char fileDescriptorIndex);
   int destroy(const std::string &fileName);
