@@ -12,18 +12,20 @@ bool IOManager::load(const std::string &name)
   std::ifstream in(name.c_str());
   if(in.fail())
   {
-    // We are suppressing output
-    // If there is simply no ldisk file,
-    // it should not be seen as an error
-    // std::cout << "Is not open.\n";
     return false;
   }
   else
   {
+	std::string rawFileInput;
+
     for(int i = 0; i < L; ++i)
     {
-      in.getline(ldisk[i], B);
+        getline(in,rawFileInput);
+        for( int j = 0 ; j < B ; ++j ){
+      	  ldisk[i][j] = rawFileInput[j];
+        }
     }
+
     in.close();
     return true;
   }

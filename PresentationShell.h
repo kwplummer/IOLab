@@ -28,14 +28,19 @@ public:
 
   void processRead(int index, int count); // rd index count
   void processWrite(int index, char toWrite, int count);
-  void processSk(int result);
+  void processSk(int index, int pos);
   void processDr();
-  void processinitiate(int result);
+  void processInitiate();
   void processSave();
   ~PresentationShell();
 
 private:
   FileSystem53 fs;
   bool runbit;
+  // if testscript will base indices on system output, make value 0,
+  // otherwise, make value 1
+  static const int OFT_INDEX_ADJUSTMENT_FACTOR = 1;
+  int adjustUserInputIndex(int index);
+  int adjustSystemOutputIndex(int index);
 };
 #endif

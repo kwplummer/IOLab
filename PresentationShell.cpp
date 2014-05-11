@@ -17,79 +17,79 @@ void PresentationShell::runPresentationShell()
 
     switch(commandValue)
     {
-    case 1: // cr (create)
-    {
-      std::cin >> name;
-      std::cout << std::endl;
-      processCreate(name);
-      break;
-    }
-    case 2: // de (destroy)
-    {
-      std::cin >> name;
-      std::cout << std::endl;
-      processDestroy(name);
-      break;
-    }
-    case 3: // op (open)
-    {
-      std::cin >> name;
-      std::cout << std::endl;
-      processOpen(name);
-      break;
-    }
-    case 4: // cl (close)
-    {
-      std::cin >> index;
-      std::cout << std::endl;
-      processClose(index);
-      break;
-    }
-    case 5: // rd (read)
-    {
-      std::cin >> index >> count;
-      std::cout << std::endl;
-      processRead(index, count);
-      break;
-    }
-    case 6: // wr (write)
-    {
-      std::cin >> index >> writeChar >> count;
-      processWrite(index, writeChar, count);
-      std::cout << std::endl;
-      break;
-    }
-    case 7: // sk (current position)
-    {
-      std::cin >> index >> pos;
-      processSk(fs.lseek(index, pos));
-      break;
-    }
-    case 8: // dr (lists files)
-    {
-      fs.directory();
-      break;
-    }
-    case 9: // in (initialize)
-    {
-      processinitiate(fs.restore());
-      break;
-    }
-    case 10: // sv (save)
-    {
-      fs.save();
-      std::cout << "disk saved\n";
-      break;
-    }
-    case 11:
-    {
-      runbit = false;
-      break;
-    }
-    default:
-    {
-      std::cerr << "error";
-    }
+		case 1: // cr (create)
+		{
+		  std::cin >> name;
+		  //std::cout << std::endl;
+		  processCreate(name);
+		  break;
+		}
+		case 2: // de (destroy)
+		{
+		  std::cin >> name;
+		  //std::cout << std::endl;
+		  processDestroy(name);
+		  break;
+		}
+		case 3: // op (open)
+		{
+		  std::cin >> name;
+		  //std::cout << std::endl;
+		  processOpen(name);
+		  break;
+		}
+		case 4: // cl (close)
+		{
+		  std::cin >> index;
+		  //std::cout << std::endl;
+		  processClose(index);
+		  break;
+		}
+		case 5: // rd (read)
+		{
+		  std::cin >> index >> count;
+		  //std::cout << std::endl;
+		  processRead(index, count);
+		  break;
+		}
+		case 6: // wr (write)
+		{
+		  std::cin >> index >> writeChar >> count;
+		  processWrite(index, writeChar, count);
+		  //std::cout << std::endl;
+		  break;
+		}
+		case 7: // sk (current position)
+		{
+		  std::cin >> index >> pos;
+		  processSk(index,pos);
+		  break;
+		}
+		case 8: // dr (lists files)
+		{
+		  fs.directory();
+		  break;
+		}
+		case 9: // in (initialize)
+		{
+		  processInitiate();
+		  break;
+		}
+		case 10: // sv (save)
+		{
+		  fs.save();
+		  std::cout << "disk saved\n";
+		  break;
+		}
+		case 11:
+		{
+		  runbit = false;
+		  break;
+		}
+		default:
+		{
+		  std::cerr << "Error: Invalid command\n";
+		}
     }
   } while(runbit);
 }
@@ -142,7 +142,6 @@ int PresentationShell::commandSwitch(std::string command)
   }
   else
   {
-    std::cerr << "Invalid command\n";
     return -1;
   }
 }
@@ -156,15 +155,15 @@ void PresentationShell::processCreate(std::string fileName)
   }
   else if(createResult == -1)
   {
-    std::cerr << "file creation failed: no space available" << std::endl;
+    std::cerr << "Error: File creation failed: no space available" << std::endl;
   }
   else if(createResult == -2)
   {
-    std::cerr << "file creation failed: file name already exists" << std::endl;
+    std::cerr << "Error: File creation failed: file name already exists" << std::endl;
   }
   else
   {
-    std::cerr << "file creation failed" << std::endl;
+    std::cerr << "Error: File creation failed" << std::endl;
   }
 }
 void PresentationShell::processDestroy(std::string fileName)
@@ -173,11 +172,11 @@ void PresentationShell::processDestroy(std::string fileName)
 
   if(deleteResult == 0)
   {
-    std::cout << "file " << fileName << " destroyed" << std::endl;
+    std::cout << "file " << fileName << " deleted" << std::endl;
   }
   else
   {
-    std::cerr << "file deletion failed" << std::endl;
+    std::cerr << "Error: File deletion failed" << std::endl;
   }
 }
 void PresentationShell::processOpen(std::string fileName)
@@ -190,12 +189,13 @@ void PresentationShell::processOpen(std::string fileName)
   }
   else
   {
-    std::cout << "file " << fileName << " opened, index = " << openResult
+    std::cout << "file " << fileName << " opened, index = " <<  adjustSystemOutputIndex(openResult)
               << std::endl;
   }
 }
 void PresentationShell::processClose(int index)
 {
+  index = adjustUserInputIndex(index);
   std::string fileName = fs.getFileName(index);
   int closeResult = fs.close(index);
 
@@ -210,6 +210,7 @@ void PresentationShell::processClose(int index)
 }
 void PresentationShell::processRead(int index, int count)
 {
+  index = adjustUserInputIndex(index);
   char *readArray;
   readArray = new char[count];
   int charactersRead;
@@ -239,34 +240,43 @@ void PresentationShell::processRead(int index, int count)
 }
 void PresentationShell::processWrite(int index, char toWrite, int count)
 {
+  index = adjustUserInputIndex(index);
   int writeResult = fs.write(index, toWrite, count);
   if(writeResult > 0)
   {
     std::cout << count << " bytes written" << std::endl;
   }
+  else{
+	  std::cerr << "Error: write failed"
+	              << std::endl;
+  }
 }
-void PresentationShell::processSk(int result)
+void PresentationShell::processSk(int index, int pos)
 {
+  index = adjustUserInputIndex(index);
+  int result = fs.lseek(index, pos);
   if(result >= 0)
   {
     std::cout << "current position is " << result << '\n';
   }
   else if(result == -1)
   {
-    std::cout << "Error: File not open\n";
+    std::cerr << "Error: File not open\n";
   }
   else if(result == -2)
   {
-    std::cout << "Error: skipping fast end of file\n";
+    std::cerr << "Error: Skipping fast end of file\n";
   }
   else if(result == -100)
   {
-    std::cout << "Cannot seek to a negative position\n";
+    std::cerr << "Error: Cannot seek to a negative position\n";
   }
 }
 void PresentationShell::processDr() {}
-void PresentationShell::processinitiate(int result)
+void PresentationShell::processInitiate()
 {
+  int result = fs.restore();
+
   if(result == 0)
   {
     std::cout << "disk restored\n";
@@ -277,4 +287,13 @@ void PresentationShell::processinitiate(int result)
   }
 }
 void PresentationShell::processSave() {}
+
+int PresentationShell::adjustUserInputIndex(int index){
+	return index - OFT_INDEX_ADJUSTMENT_FACTOR;
+}
+
+int PresentationShell::adjustSystemOutputIndex(int index){
+	return index + OFT_INDEX_ADJUSTMENT_FACTOR;
+}
+
 PresentationShell::~PresentationShell() {}

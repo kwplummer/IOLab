@@ -360,15 +360,14 @@ int FileSystem53::open(const std::string &fileName)
   int directoryIndex = table.table[OFT_DIRECTORY_INDEX].index;
   // use file descriptor index to grab the file descriptor from the descTtable
   char *directoryDescriptor = readDescriptor(directoryIndex);
-  char nameBuf[B];
+  char nameBuf[DIRECTORY_DATA_CHUNK_SIZE];
   int fileLocation = searchDir(fileName, nameBuf);
   if(fileLocation == EC_FILE_NOT_FOUND)
   {
     return EC_FILE_NOT_OPEN;
   }
-  // grab the file descriptor from descTable using readDescriptor with
-  // fileLocation
-  char *fileDescriptor = readDescriptor(fileLocation);
+  // grab the file descriptor from descTable using readDescriptor
+  char *fileDescriptor = readDescriptor((int)nameBuf[DIRECTORY_DATA_CHUNK_SIZE-1]);
   // using the file descriptor, check if it has any blocks allocated to it
   for(int k = 0; k < 3; ++k)
   {
@@ -770,6 +769,15 @@ void FileSystem53::directory()
 
 int FileSystem53::restore()
 {
+	for(int i=0;i<MAX_OPEN_FILE;++i)
+	{
+		if(table.open[i])
+		{
+			close(i);
+			table.open[i] = false;
+		}
+	}
+
   if(io.load(LDISK_FILE_NAME))
   {
     // copy descriptor table from ldisk to descTable
