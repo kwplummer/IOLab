@@ -1,14 +1,10 @@
 CXX=g++
 CFLAGS=-O2 -Wall
-GTEST_FLAGS=/usr/lib/libgtest.a /usr/lib/libgtest_main.a -lpthread
 
-ALL: program tests
+ALL: program 
 
 program: main.o iomanager.o filesystem53.o presentationshell.o
 	$(CXX) -o lab1 main.o iomanager.o filesystem53.o presentationshell.o $(CFLAGS)
-
-tests: tests.o iomanager.o filesystem53.o
-	$(CXX) -o tests tests.o iomanager.o filesystem53.o $(GTEST_FLAGS) $(CFLAGS)
 
 presentationshell.o: PresentationShell.cpp
 	$(CXX) -c -o presentationshell.o PresentationShell.cpp $(CFLAGS)
