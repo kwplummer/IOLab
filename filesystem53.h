@@ -49,6 +49,7 @@ class FileSystem53
   static const int EC_NEGATIVE_SEEK_POSITION = -100;
   static const int EC_FILE_CURRENTLY_IN_USE = -200;
   static const int EC_FILE_NAME_LENGTH_EXCEEDED = -300;
+  static const int EC_FILE_ALREADY_OPEN = -400;
 
   // FILE DESCRIPTOR CONSTANTS
   static const int FD_DIRECTORY_FILE_DESCRIPTOR_INDEX = 0;

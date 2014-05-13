@@ -16,17 +16,15 @@ bool IOManager::load(const std::string &name)
   }
   else
   {
-	std::string rawFileInput;
-
+    std::string rawFileInput;
     for(int i = 0; i < L; ++i)
     {
-        getline(in,rawFileInput);
-        for( int j = 0 ; j < B ; ++j ){
-      	  ldisk[i][j] = rawFileInput[j];
-        }
+      getline(in, rawFileInput);
+      for(int j = 0; j < B; ++j)
+      {
+        ldisk[i][j] = rawFileInput[j];
+      }
     }
-
-    in.close();
     return true;
   }
 }

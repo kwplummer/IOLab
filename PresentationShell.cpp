@@ -1,95 +1,92 @@
 #include "PresentationShell.h"
-
+#include <sstream>
 PresentationShell::PresentationShell() { runbit = true; }
 
 void PresentationShell::runPresentationShell()
 {
   do
   {
+    std::string inputString;
     std::string command, name;
     int index, count, pos;
     char writeChar;
 
     int commandValue;
     std::cout << "fileSystem53>";
-    std::cin >> command;
+    std::getline(std::cin, inputString);
+    std::istringstream in(inputString);
+    in >> command;
     commandValue = commandSwitch(command);
 
     switch(commandValue)
     {
-		case 1: // cr (create)
-		{
-		  std::cin >> name;
-		  //std::cout << std::endl;
-		  processCreate(name);
-		  break;
-		}
-		case 2: // de (destroy)
-		{
-		  std::cin >> name;
-		  //std::cout << std::endl;
-		  processDestroy(name);
-		  break;
-		}
-		case 3: // op (open)
-		{
-		  std::cin >> name;
-		  //std::cout << std::endl;
-		  processOpen(name);
-		  break;
-		}
-		case 4: // cl (close)
-		{
-		  std::cin >> index;
-		  //std::cout << std::endl;
-		  processClose(index);
-		  break;
-		}
-		case 5: // rd (read)
-		{
-		  std::cin >> index >> count;
-		  //std::cout << std::endl;
-		  processRead(index, count);
-		  break;
-		}
-		case 6: // wr (write)
-		{
-		  std::cin >> index >> writeChar >> count;
-		  processWrite(index, writeChar, count);
-		  //std::cout << std::endl;
-		  break;
-		}
-		case 7: // sk (current position)
-		{
-		  std::cin >> index >> pos;
-		  processSk(index,pos);
-		  break;
-		}
-		case 8: // dr (lists files)
-		{
-		  fs.directory();
-		  break;
-		}
-		case 9: // in (initialize)
-		{
-		  processInitiate();
-		  break;
-		}
-		case 10: // sv (save)
-		{
-		  fs.save();
-		  std::cout << "disk saved\n";
-		  break;
-		}
-		case 11:
-		{
-		  runbit = false;
-		  break;
-		}
-		default:
-		{
-		  std::cerr << "Error: Invalid command\n";
-		}
+    case 1: // cr (create)
+    {
+      in >> name;
+      processCreate(name);
+      break;
+    }
+    case 2: // de (destroy)
+    {
+      in >> name;
+      processDestroy(name);
+      break;
+    }
+    case 3: // op (open)
+    {
+      in >> name;
+      processOpen(name);
+      break;
+    }
+    case 4: // cl (close)
+    {
+      in >> index;
+      processClose(index);
+      break;
+    }
+    case 5: // rd (read)
+    {
+      in >> index >> count;
+      processRead(index, count);
+      break;
+    }
+    case 6: // wr (write)
+    {
+      in >> index >> writeChar >> count;
+      processWrite(index, writeChar, count);
+      break;
+    }
+    case 7: // sk (current position)
+    {
+      in >> index >> pos;
+      processSk(index, pos);
+      break;
+    }
+    case 8: // dr (lists files)
+    {
+      fs.directory();
+      break;
+    }
+    case 9: // in (initialize)
+    {
+      processInitiate();
+      break;
+    }
+    case 10: // sv (save)
+    {
+      fs.save();
+      std::cout << "disk saved\n";
+      break;
+    }
+    case 11:
+    {
+      runbit = false;
+      break;
+    }
+    default:
+    {
+      std::cerr << "Error: Invalid command\n";
+    }
     }
   } while(runbit);
 }
@@ -145,9 +142,9 @@ int PresentationShell::commandSwitch(std::string command)
     return -1;
   }
 }
+
 void PresentationShell::processCreate(std::string fileName)
 {
-
   int createResult = fs.create(fileName);
   if(createResult == 0)
   {
@@ -159,13 +156,15 @@ void PresentationShell::processCreate(std::string fileName)
   }
   else if(createResult == -2)
   {
-    std::cerr << "Error: File creation failed: file name already exists" << std::endl;
+    std::cerr << "Error: File creation failed: file name already exists"
+              << std::endl;
   }
   else
   {
     std::cerr << "Error: File creation failed" << std::endl;
   }
 }
+
 void PresentationShell::processDestroy(std::string fileName)
 {
   int deleteResult = fs.deleteFile(fileName);
@@ -179,6 +178,7 @@ void PresentationShell::processDestroy(std::string fileName)
     std::cerr << "Error: File deletion failed" << std::endl;
   }
 }
+
 void PresentationShell::processOpen(std::string fileName)
 {
   int openResult = fs.open(fileName);
@@ -187,9 +187,14 @@ void PresentationShell::processOpen(std::string fileName)
   {
     std::cerr << "Error: File cannot be opened" << std::endl;
   }
+  else if(openResult == -400)
+  {
+    std::cout << "Error: file " << fileName << " is already opened.\n";
+  }
   else
   {
-    std::cout << "file " << fileName << " opened, index = " <<  adjustSystemOutputIndex(openResult)
+    std::cout << "file " << fileName
+              << " opened, index = " << adjustSystemOutputIndex(openResult)
               << std::endl;
   }
 }
@@ -208,6 +213,7 @@ void PresentationShell::processClose(int index)
     std::cerr << "Error: File cannot be closed" << std::endl;
   }
 }
+
 void PresentationShell::processRead(int index, int count)
 {
   index = adjustUserInputIndex(index);
@@ -238,6 +244,7 @@ void PresentationShell::processRead(int index, int count)
               << std::endl;
   }
 }
+
 void PresentationShell::processWrite(int index, char toWrite, int count)
 {
   index = adjustUserInputIndex(index);
@@ -246,11 +253,12 @@ void PresentationShell::processWrite(int index, char toWrite, int count)
   {
     std::cout << count << " bytes written" << std::endl;
   }
-  else{
-	  std::cerr << "Error: write failed"
-	              << std::endl;
+  else
+  {
+    std::cerr << "Error: write failed" << std::endl;
   }
 }
+
 void PresentationShell::processSk(int index, int pos)
 {
   index = adjustUserInputIndex(index);
@@ -272,6 +280,7 @@ void PresentationShell::processSk(int index, int pos)
     std::cerr << "Error: Cannot seek to a negative position\n";
   }
 }
+
 void PresentationShell::processDr() {}
 void PresentationShell::processInitiate()
 {
@@ -286,14 +295,17 @@ void PresentationShell::processInitiate()
     std::cout << "disk initialized\n";
   }
 }
+
 void PresentationShell::processSave() {}
 
-int PresentationShell::adjustUserInputIndex(int index){
-	return index - OFT_INDEX_ADJUSTMENT_FACTOR;
+int PresentationShell::adjustUserInputIndex(int index)
+{
+  return index - OFT_INDEX_ADJUSTMENT_FACTOR;
 }
 
-int PresentationShell::adjustSystemOutputIndex(int index){
-	return index + OFT_INDEX_ADJUSTMENT_FACTOR;
+int PresentationShell::adjustSystemOutputIndex(int index)
+{
+  return index + OFT_INDEX_ADJUSTMENT_FACTOR;
 }
 
 PresentationShell::~PresentationShell() {}

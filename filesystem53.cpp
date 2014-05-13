@@ -220,7 +220,7 @@ std::string FileSystem53::getFileName(const int oftIndex)
 int FileSystem53::create(const std::string &fileName)
 {
   // if the fileName is more than 10 chars long
-  if(fileName.length() > MAX_FILE_NAME_LEN)
+  if(fileName.length() > MAX_FILE_NAME_LEN || fileName.empty())
   {
     return EC_FILE_NAME_LENGTH_EXCEEDED;
   }
@@ -352,7 +352,7 @@ int FileSystem53::create(const std::string &fileName)
   delete[] fileDescriptor;
   return 0; // success
 }
-//TODO: If we open an already opened file, reset position to 0
+
 int FileSystem53::open(const std::string &fileName)
 {
   // Get the file descriptor for the directory
@@ -367,29 +367,34 @@ int FileSystem53::open(const std::string &fileName)
     return EC_FILE_NOT_OPEN;
   }
   // grab the file descriptor from descTable using readDescriptor
-  char *fileDescriptor = readDescriptor((int)nameBuf[DIRECTORY_DATA_CHUNK_SIZE-1]);
+  char *fileDescriptor =
+      readDescriptor((int)nameBuf[DIRECTORY_DATA_CHUNK_SIZE - 1]);
   // using the file descriptor, check if it has any blocks allocated to it
   for(int k = 0; k < 3; ++k)
   {
     if(!table.open[k])
     {
-      if(nameBuf[DIRECTORY_DATA_CHUNK_SIZE - 1] != table.table[k].index)
+      // if(nameBuf[DIRECTORY_DATA_CHUNK_SIZE - 1] != table.table[k].index)
+      //{
+      table.table[k].pos = 0;
+      table.table[k].index = nameBuf[DIRECTORY_DATA_CHUNK_SIZE - 1];
+      table.open[k] = true;
+      if(fileDescriptor[0] == 0 || fileDescriptor[0] == -1)
       {
-        table.table[k].pos = 0;
-        table.table[k].index = nameBuf[DIRECTORY_DATA_CHUNK_SIZE - 1];
-        table.open[k] = true;
-        if(fileDescriptor[0] == 0 || fileDescriptor[0] == -1)
-        {
-          memset(table.table[k].buf, 0, B);
-        }
-        else
-        {
-          io.read_block(fileDescriptor[1], table.table[k].buf);
-        }
+        memset(table.table[k].buf, 0, B);
       }
+      else
+      {
+        io.read_block(fileDescriptor[1], table.table[k].buf);
+      }
+      //}
       delete[] directoryDescriptor;
       delete[] fileDescriptor;
       return k;
+    }
+    else if(table.table[k].index == nameBuf[DIRECTORY_DATA_CHUNK_SIZE - 1])
+    {
+      return EC_FILE_ALREADY_OPEN;
     }
   }
   delete[] directoryDescriptor;
@@ -546,7 +551,7 @@ int FileSystem53::write(int index, char value, int count)
 int FileSystem53::lseek(int index, int pos)
 {
   // S/0 VERIFY FILE IS OPEN
-  if(!table.open[index])
+  if(index < 0 || !table.open[index])
   {
     return EC_FILE_NOT_OPEN;
   }
@@ -591,7 +596,7 @@ int FileSystem53::lseek(int index, int pos)
 
 int FileSystem53::close(int index)
 {
-  const int oldBlock = 1 + (table.table[index].pos / B);
+  const int currentBlock = 1 + (table.table[index].pos / B);
   const int fileDescriptorIndex = table.table[index].index;
 
   char *fileDescriptor = readDescriptor(fileDescriptorIndex);
@@ -606,13 +611,13 @@ int FileSystem53::close(int index)
   table.open[index] = false;
 
   // Write the buffer to the disk
-  io.write_block(fileDescriptor[oldBlock], table.table[index].buf);
+  io.write_block(fileDescriptor[currentBlock], table.table[index].buf);
 
   // Resetting to 0, saying there's nothing in this index.
   table.table[index].pos = 0;
   // The file that is open is being closed
   table.table[index].index = 0;
-  delete fileDescriptor;
+  delete[] fileDescriptor;
   return 0;
 }
 
@@ -677,14 +682,6 @@ int FileSystem53::deleteFile(const std::string &fileName)
   // remove entry from directory file
   lseek(OFT_DIRECTORY_INDEX, directoryFileByteLocation);
   write(OFT_DIRECTORY_INDEX, -1, DIRECTORY_DATA_CHUNK_SIZE);
-
-  // decrease file size of directory by 11 bytes IF and ONLY IF
-  // the deleted file was the last entry in the directory
-  // By the way, we decrease the file size by marking the
-  // file descriptor of the directory file itself
-
-  // remove any blocks from the file descriptor of the directory
-  // if necessary
 
   delete[] directoryData;
   delete[] fileDescriptor;
@@ -769,14 +766,14 @@ void FileSystem53::directory()
 
 int FileSystem53::restore()
 {
-	for(int i=0;i<MAX_OPEN_FILE;++i)
-	{
-		if(table.open[i])
-		{
-			close(i);
-			table.open[i] = false;
-		}
-	}
+  for(int i = 0; i < MAX_OPEN_FILE; ++i)
+  {
+    if(table.open[i])
+    {
+      close(i);
+      table.open[i] = false;
+    }
+  }
 
   if(io.load(LDISK_FILE_NAME))
   {
